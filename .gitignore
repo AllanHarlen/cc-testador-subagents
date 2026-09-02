@@ -1,0 +1,43 @@
+# --- dependências de runtime ---
+node_modules/
+
+# --- fixtures de teste temporários (mkdtempSync nos testes node:test) ---
+.tmp-*
+
+# --- artefatos de execucao do testador (gerados por /testador, nunca versionados) ---
+# Cada run cria .testador/<slug>/artefatos/ com state.json, events.jsonl, specs,
+# relatorios Playwright e evidencia. Nao faz sentido versionar resultados de validacao.
+.testador/
+
+# --- specs Playwright gerados (vivem dentro de .testador/, mas listados explicitamente) ---
+# Estes sao artefatos de execucao, nunca codigo fonte.
+**/run/specs/
+**/run/playwright-report/
+
+# --- resultados axe e outros relatorios intermediarios ---
+**/run/axe-results.json
+**/run/axe-findings.json
+**/review/uiux-findings.json
+**/review/screenshots/
+
+# --- cache do Playwright (binarios de browser, nao do projeto) ---
+# ~/.cache/ms-playwright ou %LOCALAPPDATA%/ms-playwright ficam fora do repo.
+# Mas se alguem rodar `npx playwright install` dentro do repo, evitar commit acidental.
+playwright-browsers/
+
+# --- dependencias do runner/ (Playwright + axe-core) ---
+# O runner/ tem package.json proprio? Nao — deps sao do package.json raiz.
+# Mas se um lockfile separado for criado no runner/:
+runner/node_modules/
+
+# --- logs e saida de CI ---
+*.log
+npm-debug.log*
+
+# --- IDE e OS ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

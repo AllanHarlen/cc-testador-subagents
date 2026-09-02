@@ -1,0 +1,23 @@
+{
+  "name": "cc-testador-subagents",
+  "version": "1.0.0",
+  "description": "Browser-real QA gate for Claude Code. Sits between the Orchestrator and the Executor: ingests a build delivery, drives critical flows in a real browser via Playwright MCP, runs deterministic Playwright specs plus @axe-core/playwright, validates UI/UX against OpenSpec Scenarios and Open Design tokens, and hands a blocking/informative findings report back to the Executor. Read-only: never writes production code, never touches openspec/.",
+  "author": {
+    "name": "allanharlen"
+  },
+  "dependencies": [],
+  "keywords": [
+    "testador",
+    "qa",
+    "playwright",
+    "playwright-mcp",
+    "axe-core",
+    "accessibility",
+    "e2e",
+    "ui-ux",
+    "openspec",
+    "open-design",
+    "subagents",
+    "claude-code"
+  ]
+}

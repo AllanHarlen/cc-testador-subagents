@@ -1,0 +1,47 @@
+{
+  "title": "Flow Map (Testador phase 5 output)",
+  "description": "Structured representation of user flows discovered via Playwright MCP exploration. Written to {artefatos_dir}/plan/flow-map.json. Credential values are FORBIDDEN: only env var references (process.env.X) are allowed in input fields.",
+  "type": "object",
+  "required": ["schemaVersion", "generatedAt", "flows"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "baseUrl": { "type": "string" },
+    "flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "route", "steps"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "route": { "type": "string" },
+          "viewport": { "type": "string" },
+          "requiresAuth": { "type": "boolean" },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["action"],
+              "properties": {
+                "action": { "enum": ["navigate", "click", "fill", "assert_text", "assert_visible", "assert_url", "comment"] },
+                "selector": { "type": "string" },
+                "path": { "type": "string" },
+                "expected": { "type": "string" },
+                "pattern": { "type": "string" },
+                "description": { "type": "string" },
+                "input": {
+                  "type": "object",
+                  "description": "Field name -> value. Values MUST be process.env.X for credential fields, never literal strings.",
+                  "additionalProperties": { "type": "string" }
+                }
+              }
+            }
+          },
+          "consoleErrors": { "type": "array", "items": { "type": "string" } },
+          "apiCalls": { "type": "array" },
+          "screenshot": { "type": "string" }
+        }
+      }
+    }
+  }
+}

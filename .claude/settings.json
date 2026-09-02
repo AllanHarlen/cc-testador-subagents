@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": [
+      "Bash(node:*)",
+      "Bash(npx:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(kubectl delete namespace:*)",
+      "Bash(drop database:*)",
+      "Bash(format *)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(kubectl apply:*)"
+    ]
+  }
+}

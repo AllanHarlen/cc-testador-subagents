@@ -1,0 +1,36 @@
+{
+    "name": "cc-testador-subagents",
+    "description": "Browser-real QA gate for Claude Code. Sits between the Orchestrator and the Executor: ingests a build delivery, drives critical flows in a real browser via Playwright MCP, runs deterministic Playwright specs plus @axe-core/playwright, validates UI/UX against OpenSpec Scenarios and Open Design tokens, and hands a blocking/informative findings report back to the Executor. Read-only: never writes production code, never touches openspec/.",
+    "owner": {
+        "name": "allanharlen",
+        "email": "allanharlen@gmail.com"
+    },
+    "allowCrossMarketplaceDependenciesOn": [],
+    "plugins": [
+        {
+            "name": "cc-testador-subagents",
+            "description": "Testador skill + /testador slash command for real-browser QA. Ingests the Orchestrator's delivery (or a standalone target), runs a skills-aware preflight (Playwright MCP + webapp-testing + frontend-design + ui-ux-pro-max), builds a traceable coverage matrix from PRD/OpenSpec, explores via MCP, generates deterministic Playwright + axe specs, validates UI/UX against Open Design, triages findings by an explicit blocking rule, and hands a report to /executor.",
+            "version": "1.0.0",
+            "author": {
+                "name": "allanharlen"
+            },
+            "source": "./",
+            "category": "testing",
+            "keywords": [
+                "testador",
+                "qa",
+                "playwright",
+                "playwright-mcp",
+                "axe-core",
+                "accessibility",
+                "e2e",
+                "ui-ux",
+                "openspec",
+                "open-design",
+                "claude-code"
+            ],
+            "homepage": "https://github.com/AllanHarlen/cc-testador-subagents",
+            "repository": "https://github.com/AllanHarlen/cc-testador-subagents"
+        }
+    ]
+}
