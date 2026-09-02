@@ -4,8 +4,8 @@ Criterios de acessibilidade e regras de bloqueio.
 
 ## Regra de bloqueio
 
-Por decisao do usuario (2=c): **violacao axe nunca bloqueia por si so** (default
-`a11yBlocking: false`). Entram no laudo classificadas por severidade.
+**violacao axe nunca bloqueia por si so** (default `a11yBlocking: false`).
+Entram no laudo classificadas por severidade.
 
 **Excecoes:**
 1. `a11yBlocking: true` no Project_Config: toda violacao bloqueia.
@@ -29,18 +29,19 @@ Por decisao do usuario (2=c): **violacao axe nunca bloqueia por si so** (default
 ## CLI
 
 ```bash
-TESTADOR_ARTIFACTS_DIR={artefatos_dir} \
-  npx playwright test --config "${CLAUDE_PLUGIN_ROOT}/runner/playwright.config.mjs" \
-  --grep "a11y"
+node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} --grep "a11y"
 node "${CLAUDE_SKILL_DIR}/scripts/collect-a11y-results.mjs" --dir {artefatos_dir} [--a11y-blocking bool]
 ```
 
 ## Fixture
 
 `runner/fixtures/axe-fixture.mjs` expoe `makeAxeBuilder` com as tags WCAG configuradas.
-Uso nos specs de a11y:
+Especificos de a11y importam este fixture diretamente por caminho absoluto
+`file://` (resolvido a partir de `CLAUDE_PLUGIN_ROOT`, o mesmo mecanismo que
+`lib/spec-generator.mjs` usa para `flow-fixture.mjs` — nunca um caminho relativo
+`../fixtures/...`, que nao resolveria a partir de `{artefatos_dir}/run/specs/`):
 ```js
-import { test, expect } from "../fixtures/axe-fixture.mjs";
+import { test, expect } from "<file:// URL para runner/fixtures/axe-fixture.mjs>";
 test("a11y scan", async ({ page, makeAxeBuilder }) => {
   await page.goto("/rota");
   await page.waitForLoadState("networkidle");

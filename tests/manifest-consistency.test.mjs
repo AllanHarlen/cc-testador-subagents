@@ -42,8 +42,17 @@ test("plugin.json and marketplace.json share the same plugin name", () => {
   assert.equal(plugin.name, marketplace.plugins[0].name);
 });
 
-test("package.json declares zero runtime dependencies (only devDependencies)", () => {
+test("package.json declares exactly the pinned runtime deps the runner/ layer needs, and fast-check as the only devDependency", () => {
+  // Diferente dos plugins irmaos (executor/orquestrador/pensador), o
+  // testador tem uma camada real de runtime (`runner/`) que importa
+  // `@playwright/test` e `@axe-core/playwright` -- essas dependencias
+  // precisam estar declaradas e pinadas (versao exata, sem `^`/`~`) para
+  // que `npm install` de fato as resolva; sem isso, `run-specs.mjs` e
+  // toda a fase 7 nao tem como executar.
   const pkg = readJson("package.json");
-  assert.equal(pkg.dependencies, undefined);
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}).sort(), ["@axe-core/playwright", "@playwright/test"]);
+  for (const [name, version] of Object.entries(pkg.dependencies)) {
+    assert.match(version, /^\d+\.\d+\.\d+$/, `${name} must be pinned to an exact version, got "${version}"`);
+  }
   assert.equal(pkg.devDependencies.fastCheck ?? pkg.devDependencies["fast-check"], "4.9.0");
 });

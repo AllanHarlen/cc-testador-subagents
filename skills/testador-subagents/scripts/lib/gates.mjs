@@ -7,13 +7,27 @@
  *
  * kind: "script" -> command carries the exact argv array (node + script path
  *   + placeholders). The caller substitutes {artefatos_dir} / {task_id} /
- *   {test_result_file} before executing.
+ *   {test_result_file} before executing. Every placeholder here matches a
+ *   flag the corresponding canonical CLI actually accepts -- see
+ *   COMPLETION_GATE_BY_PLAN_GATE below for the bridge to the durable
+ *   completion-gate vocabulary in lib/testador-state.mjs.
  *
  * kind: "action" -> command is null; the prose in `reason` describes what
  *   the agent must do manually (e.g. drive the browser via Playwright MCP).
  *
  * CRITICAL: invalid scope FAILS CLOSED with INVALID_SCOPE -- never defaults
  * to the most permissive answer (SMOKE would skip most verification).
+ *
+ * Plan gates (this catalog) and completion gates
+ * (`COMPLETION_GATE_DEFINITIONS` in lib/testador-state.mjs) are two
+ * different vocabularies for two different jobs: plan gates are the
+ * per-run checklist of *steps*, completion gates are the durable
+ * DONE-blocking record of *outcomes*. `COMPLETION_GATE_BY_PLAN_GATE` is the
+ * explicit bridge between them, and `completionGateRequirements()` is the
+ * function that turns a plan into "which of the 4 waivable completion
+ * gates should be marked required for this run" -- the piece that was
+ * previously missing, which let every waivable gate default to
+ * `required: false` regardless of what the plan actually demanded.
  */
 
 export const VALID_SCOPES = Object.freeze(["SMOKE", "STANDARD", "FULL"]);
@@ -25,6 +39,66 @@ export class GatesError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+/**
+ * Plan gate id -> completion gate id (lib/testador-state.mjs
+ * COMPLETION_GATE_DEFINITIONS). Plan gates with no entry here (`generate-specs`,
+ * `triage`) feed a completion gate indirectly (through `run-specs`/`collect-results`
+ * and `report-review` respectively) and have no direct mapping of their own.
+ */
+export const COMPLETION_GATE_BY_PLAN_GATE = Object.freeze({
+  "stack-up": "stack",
+  "mcp-smoke": "smoke",
+  "run-specs": "deterministic",
+  "collect-results": "deterministic",
+  "a11y-scan": "a11y",
+  "design-conformance": "uiux",
+  "uiux-review": "uiux",
+  "coverage-check": "spec-coverage",
+  "report-review": "reports",
+  "handoff-validate": "reports",
+});
+
+/** The 4 waivable completion gates this module can compute applicability for. */
+const WAIVABLE_COMPLETION_GATES = Object.freeze(["deterministic", "a11y", "uiux", "spec-coverage"]);
+
+/**
+ * Deriva, a partir do resultado de `planGates()`, quais dos 4 completion
+ * gates waivable devem ser marcados `required: true` nesta run.
+ *
+ * Regra: um completion gate e `required: true` se PELO MENOS UM plan gate
+ * que o alimenta foi efetivamente planejado (aparece em `gates`); e
+ * `required: false` (nao aplicavel a esta run) se TODOS os plan gates que o
+ * alimentam foram pulados (aparecem em `skipped`) -- por exemplo `a11y` fica
+ * false quando `hasFrontend` e false, porque `a11y-scan` foi pulado por
+ * ausencia estrutural de front-end, nao por decisao de waiver.
+ *
+ * Chamar isto e aplicar o resultado via
+ * `testador-state.mjs gate --gate <id> --status PENDING --required <bool>`
+ * e o passo que faltava entre planejar (fase 3) e a run poder fechar
+ * `DONE`/`RUN_GATES_WAIVED` corretamente: sem isso, todo gate waivable
+ * nasce `required: false` e um `N/A` posterior nunca registra waiver.
+ *
+ * @param {{gates: Array<{id: string}>, skipped: Array<{id: string}>}} planResult
+ * @returns {Record<string, boolean>}
+ */
+export function completionGateRequirements(planResult) {
+  const plannedIds = new Set((planResult?.gates ?? []).map((g) => g.id));
+  const skippedIds = new Set((planResult?.skipped ?? []).map((s) => s.id));
+  const requirements = {};
+  for (const completionGateId of WAIVABLE_COMPLETION_GATES) {
+    const planGateIds = Object.entries(COMPLETION_GATE_BY_PLAN_GATE)
+      .filter(([, mapped]) => mapped === completionGateId)
+      .map(([planGateId]) => planGateId);
+    const anyPlanned = planGateIds.some((id) => plannedIds.has(id));
+    const anySkipped = planGateIds.some((id) => skippedIds.has(id));
+    // Se nenhum plan gate desse completion gate aparece em nenhuma das duas
+    // listas (nao deveria acontecer com o catalogo atual), a falta de sinal
+    // nao vira exigencia -- required so fica true com planejamento explicito.
+    requirements[completionGateId] = anyPlanned ? true : (anySkipped ? false : false);
+  }
+  return requirements;
 }
 
 /**
@@ -101,6 +175,7 @@ export function planGates(context = {}) {
     // SMOKE: stack + smoke only. Report and handoff still required.
     skip("generate-specs", "SMOKE scope: deterministic specs not generated");
     skip("run-specs", "SMOKE scope: skipped");
+    skip("collect-results", "SMOKE scope: skipped");
     skip("a11y-scan", "SMOKE scope: skipped");
     skip("design-conformance", "SMOKE scope: skipped");
     skip("uiux-review", "SMOKE scope: skipped");
@@ -118,8 +193,8 @@ export function planGates(context = {}) {
     "generate-specs",
     6,
     "generate-specs.mjs",
-    ["--flow-map", "{artefatos_dir}/plan/flow-map.json", "--coverage-matrix", "{artefatos_dir}/plan/coverage-matrix.json", "--dir", "{artefatos_dir}"],
-    "Generate deterministic Playwright specs from flow-map.json + coverage-matrix.json.",
+    ["--dir", "{artefatos_dir}", "--base-url", "{base_url}"],
+    "Generate deterministic Playwright specs from flow-map.json + coverage-matrix.json (read from {artefatos_dir}/plan/).",
   ));
 
   // -----------------------------------------------------------------------
@@ -129,8 +204,8 @@ export function planGates(context = {}) {
     "run-specs",
     7,
     "run-specs.mjs",
-    ["--dir", "{artefatos_dir}"],
-    "Run generated specs with npx playwright test and collect JSON/JUnit reports.",
+    ["--dir", "{artefatos_dir}", "--base-url", "{base_url}"],
+    "Run generated specs with @playwright/test and collect JSON/JUnit reports.",
   ));
 
   if (hasFrontend) {
@@ -138,7 +213,7 @@ export function planGates(context = {}) {
       "a11y-scan",
       7,
       "collect-a11y-results.mjs",
-      ["--dir", "{artefatos_dir}"],
+      ["--dir", "{artefatos_dir}", "--a11y-blocking", "{a11y_blocking}"],
       "Run @axe-core/playwright on all planned routes and emit structured a11y report.",
     ));
   } else {
@@ -149,8 +224,8 @@ export function planGates(context = {}) {
     "collect-results",
     7,
     "collect-test-results.mjs",
-    ["--dir", "{artefatos_dir}", "--input", "{test_result_file}"],
-    "Parse JUnit/JSON test reports and attach evidenceId to the run.",
+    ["--dir", "{artefatos_dir}"],
+    "Parse the Playwright JSON/JUnit report produced by run-specs.mjs into a structured summary.",
   ));
 
   // -----------------------------------------------------------------------
@@ -162,7 +237,7 @@ export function planGates(context = {}) {
         "design-conformance",
         8,
         "check-design-conformance.mjs",
-        ["--dir", "{artefatos_dir}"],
+        ["--dir", "{artefatos_dir}", "--root", "{project_root}"],
         "Check token conformance (var(--*) vs hex literals, invented tokens, accent overuse) and preview structural comparison against the Open Design proposal.",
       ));
     } else {
@@ -187,7 +262,7 @@ export function planGates(context = {}) {
       "coverage-check",
       9,
       "build-coverage-matrix.mjs",
-      ["--dir", "{artefatos_dir}"],
+      ["--root", "{project_root}", "--requirements-index", "{requirements_index_path}", "--openspec-change", "{openspec_change_dir}"],
       "Verify every traceable requirement/Scenario has a corresponding test case (COVERED or explicitly MANUAL).",
     ));
   } else {
@@ -201,7 +276,7 @@ export function planGates(context = {}) {
     "triage",
     9,
     "triage-findings.mjs",
-    ["--dir", "{artefatos_dir}"],
+    ["--dir", "{artefatos_dir}", "--a11y-blocking", "{a11y_blocking}", "--has-open-design", "{has_open_design}"],
     "Apply the blocking rule: explicit traceable requirement violated -> blocking; undeclared best practice -> informative.",
   ));
 

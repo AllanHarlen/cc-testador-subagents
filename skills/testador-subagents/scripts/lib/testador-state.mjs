@@ -845,13 +845,27 @@ function computeProjectConfigDrift(state, projectRoot) {
   };
 }
 
-function initialCompletionGates(now) {
+/**
+ * `completionGateRequirements` vem de lib/gates.mjs::completionGateRequirements(planGates(...)) --
+ * um mapa `{ deterministic: bool, a11y: bool, uiux: bool, spec-coverage: bool }`
+ * computado a partir do plano de gates da fase 3 (ver
+ * `references/workflow.md` fase 3). Quando fornecido, os 4 completion gates
+ * waivable nascem `required: true`/`false` de acordo com o que a run
+ * efetivamente planejou -- em vez de sempre `required: false` por default
+ * (o que fazia `updateCompletionGate(..., "N/A")` nunca registrar um
+ * waiver real e `RUN_GATES_WAIVED` nunca disparar, mesmo quando um gate
+ * planejado como obrigatorio era pulado sem justificativa).
+ * Sem o parametro (chamadas legadas, testes), o comportamento e idempotente
+ * ao anterior: todo gate waivable nasce `required: false`.
+ */
+function initialCompletionGates(now, completionGateRequirements = {}) {
   const gates = {};
   for (const [gateId, definition] of Object.entries(COMPLETION_GATE_DEFINITIONS)) {
+    const plannedRequired = definition.waivable ? Boolean(completionGateRequirements[gateId]) : true;
     gates[gateId] = {
       id: gateId,
       phase: definition.phase,
-      required: !definition.waivable,
+      required: plannedRequired,
       requiredOverride: null,
       status: "PENDING",
       evidence: [],
@@ -899,7 +913,7 @@ export function initRun(options) {
       phaseStatus: "RUNNING",
       lastSafePhase: Math.max(0, Number(options.lastSafePhase ?? phase - 1)),
       tasks: {},
-      completionGates: initialCompletionGates(now),
+      completionGates: initialCompletionGates(now, options.completionGateRequirements),
       phaseHistory: {
         [String(phase)]: { name: phaseName(phase), status: "RUNNING", startedAt: now, completedAt: null },
       },
@@ -1364,6 +1378,28 @@ export function updatePhase(artifactDir, phase, phaseStatus, options = {}) {
   }, options);
 }
 
+/**
+ * Aplica um mapa `{ deterministic, a11y, uiux, spec-coverage: bool }` (o
+ * retorno de `lib/gates.mjs::completionGateRequirements()`) a uma run ja
+ * inicializada, marcando cada um dos 4 completion gates waivable como
+ * `required: true/false` conforme o plano da fase 3 -- sem alterar
+ * `status` (mantem `PENDING` se ja estava, ou preserva o status atual).
+ * Usado quando o plano de gates so fica disponivel depois de `init`
+ * (fase 3 depende de descoberta/ingestao da fase 1-2, que roda depois da
+ * fase 0 onde `init` acontece).
+ */
+export function applyCompletionGateRequirements(artifactDir, requirements = {}, options = {}) {
+  const results = {};
+  for (const [gateId, required] of Object.entries(requirements)) {
+    const definition = COMPLETION_GATE_DEFINITIONS[gateId];
+    if (!definition || !definition.waivable) continue;
+    const current = loadRun(artifactDir).state.completionGates?.[gateId];
+    const currentStatus = current?.status ?? "PENDING";
+    results[gateId] = updateCompletionGate(artifactDir, gateId, currentStatus, { ...options, required: Boolean(required) }).gate;
+  }
+  return { gates: results };
+}
+
 export function updateCompletionGate(artifactDir, gateId, status, options = {}) {
   const definition = COMPLETION_GATE_DEFINITIONS[gateId];
   if (!definition) {
@@ -1406,6 +1442,19 @@ export function updateCompletionGate(artifactDir, gateId, status, options = {}) 
     };
 
     let requiredOverride = options.required ?? previous.requiredOverride ?? null;
+    // Guarda de monotonicidade: uma vez que um waiver foi registrado
+    // (requiredOverride === false), flipa-lo de volta para true precisa
+    // ser um ato deliberado (`--unwaive`), nunca um efeito colateral de
+    // reabrir o gate com `--required true`. Sem isso, `RUN_GATES_WAIVED`
+    // podia ser silenciado retroativamente sem deixar rastro auditavel do
+    // waiver que aconteceu.
+    if (previous.requiredOverride === false && requiredOverride === true && !options.unwaive) {
+      throw new TestadorStateError(
+        "GATE_WAIVER_REQUIRES_EXPLICIT_UNWAIVE",
+        `Completion gate ${gateId} was previously waived (requiredOverride: false); flipping it back to required needs options.unwaive: true to make the transition auditable`,
+        { gateId, previousReason: previous.reason ?? null },
+      );
+    }
     if (normalizedStatus === "N/A" && previous.required) {
       requiredOverride = false;
     }
@@ -1757,8 +1806,16 @@ export function updateRunStatus(artifactDir, status, options = {}) {
           { gates: openGates.map((gate) => ({ id: gate.id, status: gate.status })) },
         );
       }
+      // Um waiver de verdade e um gate que foi fechado N/A com
+      // requiredOverride:false (ver `updateCompletionGate` — so acontece
+      // quando o gate estava `required` e foi explicitamente skippado com
+      // justificativa). `requiredOverride:false` sem `status: "N/A"` e o
+      // resultado normal de `applyCompletionGateRequirements`/`gates-apply`
+      // marcando um gate como "nao aplicavel a este escopo" (ex.:
+      // spec-coverage sem OpenSpec) — isso nunca deve, por si so, forcar a
+      // run a fechar PARTIAL em vez de DONE.
       const waivedGates = Object.values(state.completionGates).filter(
-        (gate) => gate.requiredOverride === false,
+        (gate) => gate.requiredOverride === false && gate.status === "N/A",
       );
       if (waivedGates.length > 0) {
         throw new TestadorStateError(

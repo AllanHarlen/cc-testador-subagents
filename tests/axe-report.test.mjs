@@ -88,3 +88,21 @@ test("collectAxeResults emits an intelligence envelope", () => {
   assert.equal(result.kind, "axe-results");
   assert.ok(result.evidenceId.startsWith("intel-axe-results-"));
 });
+
+test("parseAxeReport byRule counts correctly even when a violation has no nodes array (operator-precedence regression)", () => {
+  const root = fixture();
+  mkdirSync(join(root, "run"), { recursive: true });
+  const withoutNodes = {
+    violations: [
+      { id: "color-contrast", impact: "serious", description: "x", tags: [] }, // sem `nodes`
+      { id: "color-contrast", impact: "serious", description: "x", tags: [], nodes: [{}, {}] },
+    ],
+    incomplete: [],
+  };
+  writeFileSync(join(root, "run", "axe-results.json"), JSON.stringify(withoutNodes), "utf8");
+  const result = parseAxeReport(join(root, "run", "axe-results.json"));
+  // Sem o bug: 1 (fallback, nodes ausente) + 2 (nodes.length) = 3.
+  // Com o bug (`+` antes de `??`): NaN em algum ponto do acumulo -> byRule vira NaN.
+  assert.equal(result.byRule["color-contrast"], 3);
+  assert.ok(Number.isFinite(result.byRule["color-contrast"]), "byRule count must never be NaN");
+});

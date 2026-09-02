@@ -6,8 +6,8 @@ Tabela completa de itens verificados por `scripts/preflight.mjs`.
 |---|---|---|
 | Node >= 22 | Sim | Instalar Node.js 22+ e garantir que esta no PATH |
 | Playwright MCP | Sim | `claude mcp add playwright npx @playwright/mcp@latest` |
-| Deps do plugin | Sim | `npm install --prefix "${CLAUDE_PLUGIN_ROOT}"` |
-| Chromium | Sim | `npx playwright install chromium` |
+| Deps do plugin (`@playwright/test`, `@axe-core/playwright`) | Sim | `npm install --prefix "${CLAUDE_PLUGIN_ROOT}"` — verificado via `require.resolve()`, nao apenas presenca no `package.json` |
+| Chromium | Sim | `npx playwright install chromium` (roda automaticamente como `postinstall` do passo acima) |
 | Skill `webapp-testing` | **Sim** | `npx skills add https://github.com/anthropics/skills --skill webapp-testing` |
 | Skill `frontend-design` | **Sim** | `npx skills add https://github.com/anthropics/skills --skill frontend-design` |
 | Skill `ui-ux-pro-max` | **Sim** | `npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max` |

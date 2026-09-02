@@ -59,10 +59,10 @@ Voce e o Executor Deterministico. Sua responsabilidade e rodar os specs gerados
 e o scan axe, e reportar os resultados estruturados.
 
 Instrucoes:
-1. Verificar que `TESTADOR_ARTIFACTS_DIR` e `TESTADOR_BASE_URL` estao definidos.
-2. Executar specs: `npx playwright test --config "${CLAUDE_PLUGIN_ROOT}/runner/playwright.config.mjs"`.
-3. Executar axe nos specs de a11y se presentes.
-4. Coletar resultados: `node "${CLAUDE_SKILL_DIR}/scripts/collect-test-results.mjs" --dir {artefatos_dir}`.
+1. Executar specs: `node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} [--base-url <url>]`.
+2. Executar axe nos specs de a11y se presentes.
+3. Coletar resultados: `node "${CLAUDE_SKILL_DIR}/scripts/collect-test-results.mjs" --dir {artefatos_dir}`.
+4. Coletar a11y: `node "${CLAUDE_SKILL_DIR}/scripts/collect-a11y-results.mjs" --dir {artefatos_dir}`.
 5. Nunca modificar codigo do repo-alvo.
 
 Formato de retorno:

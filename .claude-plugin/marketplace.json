@@ -10,7 +10,7 @@
         {
             "name": "cc-testador-subagents",
             "description": "Testador skill + /testador slash command for real-browser QA. Ingests the Orchestrator's delivery (or a standalone target), runs a skills-aware preflight (Playwright MCP + webapp-testing + frontend-design + ui-ux-pro-max), builds a traceable coverage matrix from PRD/OpenSpec, explores via MCP, generates deterministic Playwright + axe specs, validates UI/UX against Open Design, triages findings by an explicit blocking rule, and hands a report to /executor.",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "author": {
                 "name": "allanharlen"
             },

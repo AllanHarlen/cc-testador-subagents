@@ -136,7 +136,7 @@ Git/arquivos/validacoes -> devolve `resumeFromPhase`. Nao trate `resume` como de
    Se a tool de Skill recusar por `disable-model-invocation: true`, leia
    `${CLAUDE_PLUGIN_ROOT}/skills/testador-subagents/SKILL.md` e siga diretamente.
 
-3. Siga o fluxo de 11 fases documentado no SKILL.md: ingestao (handoff do Orquestrador, OpenSpec,
+3. Siga o fluxo de 12 fases (0-11) documentado no SKILL.md: preflight -> ingestao (handoff do Orquestrador, OpenSpec,
    Open Design) -> descoberta de alvo -> plano rastreavel -> stack -> exploracao MCP -> geracao de
    specs -> execucao determinística -> validacao UI/UX -> triagem -> review do laudo -> laudo +
    handoff.

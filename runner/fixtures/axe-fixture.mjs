@@ -10,11 +10,11 @@ const wcagTags = (process.env.TESTADOR_WCAG_TAGS ?? "wcag2a,wcag2aa,wcag21a,wcag
   .map((t) => t.trim())
   .filter(Boolean);
 
-export const test = base.extend({
-  makeAxeBuilder: async ({ page }, use) => {
-    const makeAxeBuilder = () => new AxeBuilder({ page }).withTags(wcagTags);
-    await use(makeAxeBuilder);
-  },
-});
+export const makeAxeBuilderFixture = async ({ page }, use) => {
+  const makeAxeBuilder = () => new AxeBuilder({ page }).withTags(wcagTags);
+  await use(makeAxeBuilder);
+};
+
+export const test = base.extend({ makeAxeBuilder: makeAxeBuilderFixture });
 
 export { expect } from "@playwright/test";

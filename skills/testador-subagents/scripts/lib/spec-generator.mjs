@@ -1,17 +1,26 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
  * Gerador deterministico de specs Playwright.
  *
  * Transforma flow-map.json + coverage-matrix.json em arquivos .spec.mjs
  * escritos em {artefatos_dir}/run/specs/. O repo-alvo nunca e tocado:
- * specs vivem exclusivamente dentro de artefatos_dir.
+ * specs vivem exclusivamente dentro de artefatos_dir, e artefatos_dir e
+ * validado como estando dentro de uma arvore `.testador/` antes de qualquer
+ * escrita (ver `assertInsideTestadorRoot`).
  *
  * Regras de seguranca:
- * - Credenciais: qualquer entrada de flow-map com campo `credential` ou
- *   `password` deve referenciar uma env var (process.env.X), nunca um valor
- *   literal. O gerador valida isso antes de escrever.
+ * - Credenciais: qualquer entrada de flow-map com campo de credencial deve
+ *   referenciar uma env var (`process.env.NOME_EXATO`, validado por regex
+ *   estrita de match completo -- nao apenas `startsWith`), nunca um valor
+ *   literal nem uma expressao arbitraria.
+ * - Toda string vinda de flow-map.json/coverage-matrix.json e serializada
+ *   com `JSON.stringify` antes de entrar no arquivo gerado. Isso produz um
+ *   literal de string JS validamente escapado (aspas, backslash, quebras de
+ *   linha, backtick, `${`) -- nunca interpolacao de template literal com
+ *   `replace()` manual, que e o padrao que permite escape de contexto.
  * - A saida e deterministica: mesma entrada -> mesmos bytes de saida.
  *
  * Os templates sao inline neste modulo (sem I/O extra) para manter a
@@ -27,7 +36,18 @@ export class SpecGeneratorError extends Error {
   }
 }
 
-const CREDENTIAL_FIELD_NAMES = new Set(["password", "credential", "token", "secret", "key", "apiKey", "api_key"]);
+const CREDENTIAL_FIELD_NAMES = new Set([
+  "password", "senha", "credential", "credentials", "token", "secret",
+  "key", "apikey", "api_key", "clientsecret", "client_secret",
+  "authtoken", "auth_token", "pin", "otp",
+]);
+
+/** `process.env.NOME` -- match completo, nome em MAIUSCULAS/underscore/digitos, nunca uma expressao. */
+const ENV_REF_PATTERN = /^process\.env\.[A-Z_][A-Z0-9_]*$/;
+
+function isCredentialField(fieldName) {
+  return CREDENTIAL_FIELD_NAMES.has(String(fieldName).toLowerCase());
+}
 
 /** Garante que valores de credencial nao vazem para os specs gerados. */
 function validateFlowMapCredentials(flowMap) {
@@ -35,72 +55,115 @@ function validateFlowMapCredentials(flowMap) {
   for (const flow of flowMap.flows ?? []) {
     for (const step of flow.steps ?? []) {
       for (const [fieldName, value] of Object.entries(step.input ?? {})) {
-        if (CREDENTIAL_FIELD_NAMES.has(fieldName) && typeof value === "string" && !value.startsWith("process.env.")) {
-          violations.push({ flow: flow.name, step: step.selector, field: fieldName, value: "[redacted]" });
-        }
+        if (!isCredentialField(fieldName)) continue;
+        if (typeof value === "string" && ENV_REF_PATTERN.test(value)) continue;
+        violations.push({ flow: flow.name, step: step.selector, field: fieldName, value: "[redacted]" });
       }
     }
   }
   if (violations.length > 0) {
     throw new SpecGeneratorError(
       "CREDENTIAL_VALUE_IN_FLOW_MAP",
-      "Credential values must be referenced as process.env.X, never as literals",
+      "Credential values must be referenced as an exact process.env.NAME reference, never as a literal or expression",
       { violations },
     );
   }
 }
 
-/** Escapa um seletor para uso seguro dentro de template literals. */
-function escapeSel(selector) {
-  return String(selector ?? "").replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
+/**
+ * Serializa qualquer valor como literal de string JS seguro. `JSON.stringify`
+ * escapa aspas duplas, backslash, controles e quebras de linha -- e o unico
+ * mecanismo de escaping usado neste modulo para valores dinamicos.
+ */
+function jsStringLiteral(value) {
+  return JSON.stringify(String(value ?? ""));
 }
 
-/** Escapa um valor de string para uso como argumento literal em spec. */
-function escapeStr(value) {
-  return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+/** Comentario de linha (`// ...`) seguro: quebras de linha terminam um `//` e injetam codigo, entao sao removidas. */
+function toLineComment(text) {
+  const sanitized = String(text ?? "").replace(/[\r\n]+/g, " ").trim();
+  return sanitized ? `// ${sanitized}` : "// (sem descricao)";
+}
+
+/**
+ * Garante que `artefatosDir` esta dentro de uma arvore `.testador/`. Escrever
+ * specs fora dessa arvore violaria a garantia read-only sobre o repo-alvo --
+ * esta funcao e a unica linha de defesa contra um `--dir` incorreto.
+ */
+function assertInsideTestadorRoot(artefatosDir) {
+  const segments = artefatosDir.split(sep).filter(Boolean);
+  if (!segments.includes(".testador")) {
+    throw new SpecGeneratorError(
+      "ARTEFATOS_DIR_OUTSIDE_TESTADOR",
+      `artefatosDir must be inside a .testador/ directory tree (never the target repo root): ${artefatosDir}`,
+      { artefatosDir },
+    );
+  }
+}
+
+/**
+ * Caminho absoluto de `runner/fixtures/flow-fixture.mjs`, convertido para
+ * `file://` URL (import ESM exige URL ou especificador relativo -- caminho
+ * absoluto do Windows como string crua nao e um especificador valido).
+ * Resolvido a partir de `CLAUDE_PLUGIN_ROOT` quando definido, ou
+ * relativamente a este proprio modulo. Este arquivo vive em
+ * `skills/testador-subagents/scripts/lib/`; quatro niveis acima
+ * (`lib` -> `scripts` -> `testador-subagents` -> `skills` -> raiz do
+ * plugin) chega na raiz do plugin, que contem `runner/`.
+ */
+function resolveFlowFixtureImportUrl() {
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT
+    ? resolve(process.env.CLAUDE_PLUGIN_ROOT)
+    : resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..");
+  const fixturePath = join(pluginRoot, "runner", "fixtures", "flow-fixture.mjs");
+  return pathToFileURL(fixturePath).href;
 }
 
 /**
  * Gera o conteudo de um spec .mjs a partir de um flow + entradas de coverage.
  */
-function generateFlowSpec(flow, baseUrl, coverageEntries) {
+function generateFlowSpec(flow, baseUrl, coverageEntries, fixtureImportUrl) {
   const coverageComment = coverageEntries.length > 0
-    ? `// Traceable to: ${coverageEntries.map((e) => e.origin?.ref ?? e.origin?.scenario ?? e.id).join(", ")}`
-    : "// Exploratory flow (no formal requirement traceability)";
+    ? toLineComment(`Traceable to: ${coverageEntries.map((e) => e.origin?.ref ?? e.origin?.scenario ?? e.id).join(", ")}`)
+    : toLineComment("Exploratory flow (no formal requirement traceability)");
 
   const steps = (flow.steps ?? []).map((step) => {
     if (step.action === "navigate") {
-      return `  await page.goto(\`${escapeSel(baseUrl)}${escapeSel(step.path ?? "")}\`);
+      const url = `${baseUrl}${step.path ?? ""}`;
+      return `  await page.goto(${jsStringLiteral(url)});
   await page.waitForLoadState("networkidle");`;
     }
     if (step.action === "click") {
-      return `  await page.click(\`${escapeSel(step.selector)}\`);`;
+      return `  await page.click(${jsStringLiteral(step.selector)});`;
     }
     if (step.action === "fill") {
       const inputEntries = Object.entries(step.input ?? {});
       return inputEntries.map(([field, value]) => {
-        const safeValue = String(value).startsWith("process.env.")
-          ? `\${${value}}`
-          : escapeStr(value);
-        return `  await page.fill(\`${escapeSel(step.selector)}\`, \`${safeValue}\`);`;
+        const valueExpression = (isCredentialField(field) && typeof value === "string" && ENV_REF_PATTERN.test(value))
+          ? `(${value} ?? "")`
+          : jsStringLiteral(value);
+        return `  await page.fill(${jsStringLiteral(step.selector)}, ${valueExpression});`;
       }).join("\n");
     }
     if (step.action === "assert_text") {
-      return `  await expect(page.locator(\`${escapeSel(step.selector)}\`)).toContainText('${escapeStr(step.expected ?? "")}');`;
+      const title = jsStringLiteral(`assert_text ${step.selector ?? ""}`.trim());
+      return `  await recordAssertion(domAssertions, ${title}, () => expect(page.locator(${jsStringLiteral(step.selector)})).toContainText(${jsStringLiteral(step.expected ?? "")}));`;
     }
     if (step.action === "assert_visible") {
-      return `  await expect(page.locator(\`${escapeSel(step.selector)}\`)).toBeVisible();`;
+      const title = jsStringLiteral(`assert_visible ${step.selector ?? ""}`.trim());
+      return `  await recordAssertion(domAssertions, ${title}, () => expect(page.locator(${jsStringLiteral(step.selector)})).toBeVisible());`;
     }
     if (step.action === "assert_url") {
-      return `  await expect(page).toHaveURL(new RegExp('${escapeStr(step.pattern ?? "")}'));`;
+      const title = jsStringLiteral(`assert_url ${step.pattern ?? ""}`.trim());
+      return `  await recordAssertion(domAssertions, ${title}, () => expect(page).toHaveURL(new RegExp(${jsStringLiteral(step.pattern ?? "")})));`;
     }
-    return `  // ${step.action}: ${escapeSel(step.selector ?? step.description ?? "")}`;
+    return `  ${toLineComment(`${step.action}: ${step.selector ?? step.description ?? ""}`)}`;
   });
 
-  return `import { test, expect } from "@playwright/test";
+  return `import { test, expect, recordAssertion } from ${jsStringLiteral(fixtureImportUrl)};
 ${coverageComment}
 
-test("${escapeStr(flow.name)}", async ({ page, consoleErrors }) => {
+test(${jsStringLiteral(flow.name)}, async ({ page, consoleErrors, apiCalls, domAssertions }) => {
 ${steps.join("\n")}
 });
 `;
@@ -114,11 +177,14 @@ ${steps.join("\n")}
  * @param {string} options.baseUrl       URL base da app (do Project_Config).
  * @param {object} [options.flowMap]     Conteudo de flow-map.json (opcional; le do disco se ausente).
  * @param {object} [options.coverageMatrix]  Conteudo de coverage-matrix.json (opcional).
+ * @param {string} [options.fixtureImportUrl]  Override para testes (evita resolver runner/ real).
  * @returns {{ specsDir, generated: string[] }}
  */
 export function generateSpecs(options = {}) {
   const artefatosDir = resolve(options.artefatosDir ?? process.cwd());
+  assertInsideTestadorRoot(artefatosDir);
   const baseUrl = options.baseUrl ?? "http://localhost:3000";
+  const fixtureImportUrl = options.fixtureImportUrl ?? resolveFlowFixtureImportUrl();
 
   // Ler flow-map.json
   let flowMap = options.flowMap;
@@ -128,6 +194,12 @@ export function generateSpecs(options = {}) {
       throw new SpecGeneratorError("FLOW_MAP_NOT_FOUND", `flow-map.json not found: ${path}`, { path });
     }
     flowMap = JSON.parse(readFileSync(path, "utf8"));
+  }
+
+  for (const flow of flowMap.flows ?? []) {
+    if (!flow.name || typeof flow.name !== "string") {
+      throw new SpecGeneratorError("FLOW_MISSING_NAME", "Every flow in flow-map.json must have a non-empty string name", { flow });
+    }
   }
 
   // Validar credenciais
@@ -146,6 +218,7 @@ export function generateSpecs(options = {}) {
   const specsDir = join(artefatosDir, "run", "specs");
   mkdirSync(specsDir, { recursive: true });
 
+  const usedNames = new Map();
   const generated = [];
   for (const flow of flowMap.flows ?? []) {
     // Associar entradas de coverage relevantes ao fluxo
@@ -156,8 +229,12 @@ export function generateSpecs(options = {}) {
       ),
     );
 
-    const specContent = generateFlowSpec(flow, baseUrl, relevant);
-    const safeName = flow.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60);
+    const specContent = generateFlowSpec(flow, baseUrl, relevant, fixtureImportUrl);
+    let safeName = flow.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "flow";
+    const collisions = usedNames.get(safeName) ?? 0;
+    usedNames.set(safeName, collisions + 1);
+    if (collisions > 0) safeName = `${safeName}-${collisions + 1}`;
+
     const specPath = join(specsDir, `${safeName}.spec.mjs`);
     writeFileSync(specPath, specContent, "utf8");
     generated.push(specPath);

@@ -127,11 +127,33 @@ Simplified flow:
 5. stack up — `docker compose up --build` or `npm run dev` via `webapp-testing`;
 6. MCP exploration — smoke, selectors, `flow-map.json` → screenshots;
 7. spec generation — deterministic `.spec.mjs` files (never in the target repo);
-8. deterministic execution — `npx playwright test` + `@axe-core/playwright`;
+8. deterministic execution — `run-specs.mjs` (`@playwright/test`) + `@axe-core/playwright`;
 9. UI/UX review — `frontend-design` + `ui-ux-pro-max` + Open Design conformance;
 10. triage — blocking rule applied, 2xx-without-effect correlator;
 11. laudo review — read-only subagent checks evidence vs conclusions;
 12. test report + handoff — `test-report.md` + `handoff.json` → `/executor`.
+
+Default subagent routing:
+
+- phase 5: MCP explorer subagent via Playwright MCP (`webapp-testing` skill);
+- phase 7: deterministic executor subagent (`run-specs.mjs` / `@playwright/test`);
+- phase 8: UI/UX reviewer subagent (`frontend-design` + `ui-ux-pro-max` skills);
+- phase 10: read-only report reviewer subagent.
+
+## How the Testador decides the run status
+
+| Triage result | Run status |
+|---|---|
+| At least 1 blocking finding | `REPROVADO` |
+| No blocking findings, but informative findings exist | `APROVADO_COM_RESSALVAS` |
+| Zero findings | `APROVADO` |
+| A gate was waived or verification was impossible | `PARCIAL` |
+
+The run status determines the `handoff.json` status:
+
+- `REPROVADO` → `BLOCKED` — the Executor treats the report as a pre-defined fix plan;
+- `PARCIAL` → `PARTIAL` — signals an incomplete verification;
+- `APROVADO` / `APROVADO_COM_RESSALVAS` → `DONE`.
 
 ## Prerequisites
 
@@ -141,8 +163,8 @@ Mandatory:
 |---|---|
 | Node.js >= 22 | `node --version` |
 | Playwright MCP | `claude mcp add playwright npx @playwright/mcp@latest` |
-| Plugin deps | `npm install --prefix "${CLAUDE_PLUGIN_ROOT}"` |
-| Chromium | `npx playwright install chromium` |
+| Plugin deps (`@playwright/test`, `@axe-core/playwright`) | `npm install --prefix "${CLAUDE_PLUGIN_ROOT}"` — checked via `require.resolve()`, not just `package.json` presence |
+| Chromium | `npx playwright install chromium` (runs automatically as a `postinstall` of the step above) |
 | Skill `webapp-testing` | `npx skills add https://github.com/anthropics/skills --skill webapp-testing` |
 | Skill `frontend-design` | `npx skills add https://github.com/anthropics/skills --skill frontend-design` |
 | Skill `ui-ux-pro-max` | `npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max` |
@@ -155,6 +177,10 @@ Optional:
 | Python 3 | Enables `with_server.py` from `webapp-testing`; otherwise `runner/server-lifecycle.mjs` is used |
 | `openspec` CLI | Confirms OpenSpec change-set completeness; direct file reading works without it |
 | Context7 MCP | Current docs for libs/frameworks/APIs |
+
+Preflight also detects whether Python 3 is on PATH and reports it under
+`checks.optional.python3`, together with which lifecycle path is active
+(`with_server.py` or `runner/server-lifecycle.mjs`).
 
 Minimum permission in the target project:
 
@@ -226,13 +252,15 @@ cc-testador-subagents/
 |   `-- fixtures/
 |       |-- axe-fixture.mjs
 |       |-- console-guard.mjs
+|       |-- flow-fixture.mjs
 |       `-- network-recorder.mjs
 |-- scripts/
-|   `-- (16 compatibility wrappers)
+|   `-- (16 compatibility wrappers, 1:1 with the canonical CLIs below)
 `-- skills/
     `-- testador-subagents/
         |-- SKILL.md
         |-- scripts/
+        |   |-- testador-spec.mjs (doc<->code source of truth, not a CLI, no wrapper)
         |   |-- (16 canonical CLIs)
         |   `-- lib/
         |       `-- (20 modules)

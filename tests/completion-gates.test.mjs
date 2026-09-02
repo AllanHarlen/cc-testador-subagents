@@ -11,6 +11,7 @@ import test from "node:test";
 
 import {
   COMPLETION_GATE_DEFINITIONS,
+  applyCompletionGateRequirements,
   initRun,
   registerTask,
   updateCompletionGate,
@@ -93,6 +94,75 @@ test("closing all 7 gates DONE (or legitimately N/A when never required) allows 
   updateCompletionGate(artifactDir, "uiux", "N/A", { reason: "no front-end in this run" });
   updateCompletionGate(artifactDir, "spec-coverage", "N/A", { reason: "no formal requirement source" });
   updateCompletionGate(artifactDir, "reports", "DONE", { evidence: "report-written" });
+
+  const result = updateRunStatus(artifactDir, "DONE");
+  assert.equal(result.state.status, "DONE");
+});
+
+// --- gates plan -> completion gate requirements at init time ---
+
+test("initRun with completionGateRequirements marks planned waivable gates required:true", () => {
+  const root = mkdtempSync(join(process.cwd(), ".tmp-completion-gates-test-"));
+  roots.push(root);
+  const artifactDir = join(root, ".testador", "demo2", "artefatos");
+  initRun({
+    slug: "demo2",
+    artifactDir,
+    completionGateRequirements: { deterministic: true, a11y: true, uiux: false, "spec-coverage": false },
+  });
+  // Re-load via loadRun through a no-op gate read: query current gate required flags.
+  const gate = updateCompletionGate(artifactDir, "a11y", "PENDING", {});
+  assert.equal(gate.gate.required, true);
+  const uiux = updateCompletionGate(artifactDir, "uiux", "PENDING", {});
+  assert.equal(uiux.gate.required, false);
+});
+
+test("without completionGateRequirements, every waivable gate still defaults to required:false (legacy behavior)", () => {
+  const artifactDir = fixture();
+  for (const gateId of ["deterministic", "a11y", "uiux", "spec-coverage"]) {
+    const gate = updateCompletionGate(artifactDir, gateId, "PENDING", {});
+    assert.equal(gate.gate.required, false);
+  }
+});
+
+// --- requiredOverride monotonicity guard ---
+
+test("flipping a waived gate's requiredOverride back to true without --unwaive is rejected", () => {
+  const artifactDir = fixture();
+  updateCompletionGate(artifactDir, "deterministic", "PENDING", { required: true });
+  const waived = updateCompletionGate(artifactDir, "deterministic", "N/A", { reason: "Playwright unavailable" });
+  assert.equal(waived.gate.requiredOverride, false);
+
+  assert.throws(
+    () => updateCompletionGate(artifactDir, "deterministic", "PENDING", { required: true }),
+    (error) => error.code === "GATE_WAIVER_REQUIRES_EXPLICIT_UNWAIVE",
+  );
+});
+
+test("flipping a waived gate's requiredOverride back to true WITH --unwaive succeeds", () => {
+  const artifactDir = fixture();
+  updateCompletionGate(artifactDir, "deterministic", "PENDING", { required: true });
+  updateCompletionGate(artifactDir, "deterministic", "N/A", { reason: "Playwright unavailable" });
+
+  const reopened = updateCompletionGate(artifactDir, "deterministic", "PENDING", { required: true, unwaive: true });
+  assert.equal(reopened.gate.requiredOverride, true);
+  assert.equal(reopened.gate.required, true);
+});
+
+test("applyCompletionGateRequirements marking a gate required:false (not applicable) never counts as a waiver", () => {
+  const artifactDir = fixture();
+  // spec-coverage nao planejado para este run (sem OpenSpec/joint) -> required:false,
+  // mas o gate nunca foi fechado N/A -- isso NAO e um waiver e nao deve bloquear DONE.
+  applyCompletionGateRequirements(artifactDir, { deterministic: true, a11y: true, uiux: true, "spec-coverage": false });
+
+  updateCompletionGate(artifactDir, "stack", "DONE", { evidence: "app-up" });
+  updateCompletionGate(artifactDir, "smoke", "DONE", { evidence: "explored" });
+  updateCompletionGate(artifactDir, "deterministic", "DONE", { evidence: "specs-passed" });
+  updateCompletionGate(artifactDir, "a11y", "DONE", { evidence: "axe-passed" });
+  updateCompletionGate(artifactDir, "uiux", "DONE", { evidence: "review-done" });
+  updateCompletionGate(artifactDir, "reports", "DONE", { evidence: "report-written" });
+  // spec-coverage fica PENDING (required:false, mas nunca fechado) -- ainda assim
+  // nao bloqueia DONE porque RUN_GATES_NOT_CLOSED so olha gates com required:true.
 
   const result = updateRunStatus(artifactDir, "DONE");
   assert.equal(result.state.status, "DONE");

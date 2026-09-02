@@ -1,21 +1,40 @@
 #!/usr/bin/env node
 /**
  * CLI de triagem de achados.
- * triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool]
+ * triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-open-design bool]
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { triageFindings } from "./lib/finding-triage.mjs";
 import { executeJsonCli, boolArg, parseArgs, required } from "./lib/cli-utils.mjs";
 
+/** Le um arquivo NDJSON (uma linha JSON por registro); linhas invalidas sao ignoradas. */
+function readNdjson(path) {
+  if (!existsSync(path)) return [];
+  const lines = readFileSync(path, "utf8").split("\n").map((l) => l.trim()).filter(Boolean);
+  const records = [];
+  for (const line of lines) {
+    try {
+      records.push(JSON.parse(line));
+    } catch {
+      // linha corrompida -- ignorada, nao interrompe a leitura das demais
+    }
+  }
+  return records;
+}
+
 function main(argv) {
   const args = parseArgs(argv);
   if (args._[0] === "help" || args.help) {
-    return { name: "triage-findings", commands: { triage: "triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool]" } };
+    return {
+      name: "triage-findings",
+      commands: { triage: "triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-open-design bool]" },
+    };
   }
   const dir = required(args, "dir");
   const artefatosDir = resolve(dir);
   const a11yBlocking = boolArg(args["a11y-blocking"], false);
+  const hasOpenDesign = boolArg(args["has-open-design"], false);
 
   // Ler achados brutos de varios relatorios
   const rawFindings = [];
@@ -49,7 +68,16 @@ function main(argv) {
     } catch { /* opcional */ }
   }
 
-  return { result: triageFindings({ rawFindings, requirements, a11yBlocking }) };
+  // Alimenta o correlacionador 2xx-sem-efeito com o que os specs gerados
+  // gravaram via runner/fixtures/flow-fixture.mjs::persistFlowEvidence
+  // durante `run-specs.mjs`. Sem isso, apiCalls/domAssertions ficavam
+  // sempre vazios e o correlacionador nunca produzia um achado real.
+  const networkCallsPath = join(artefatosDir, "run", "network-calls.jsonl");
+  const flowRecords = readNdjson(networkCallsPath);
+  const apiCalls = flowRecords.flatMap((r) => r.apiCalls ?? []);
+  const domAssertions = flowRecords.flatMap((r) => r.domAssertions ?? []);
+
+  return { result: triageFindings({ rawFindings, requirements, a11yBlocking, hasOpenDesign, apiCalls, domAssertions }) };
 }
 
 executeJsonCli(main);

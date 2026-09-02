@@ -127,7 +127,7 @@ Fluxo resumido:
 5. subida da stack — `docker compose up --build` ou `npm run dev` via `webapp-testing`;
 6. exploração MCP — smoke, seletores, `flow-map.json` → screenshots;
 7. geração de specs — arquivos `.spec.mjs` determinísticos (nunca no repo alvo);
-8. execução determinística — `npx playwright test` + `@axe-core/playwright`;
+8. execução determinística — `run-specs.mjs` (`@playwright/test`) + `@axe-core/playwright`;
 9. validação UI/UX — `frontend-design` + `ui-ux-pro-max` + conformidade Open Design;
 10. triagem — regra de corte aplicada, correlacionador 2xx-sem-efeito;
 11. review do laudo — subagente read-only confere evidência vs conclusões;
@@ -136,7 +136,7 @@ Fluxo resumido:
 Roteamento padrão de subagentes:
 
 - fase 5: subagente explorador via Playwright MCP (skill `webapp-testing`);
-- fase 7: subagente executor determinístico (`npx playwright test`);
+- fase 7: subagente executor determinístico (`run-specs.mjs` / `@playwright/test`);
 - fase 8: subagente revisor UI/UX (skills `frontend-design` + `ui-ux-pro-max`);
 - fase 10: subagente revisor do laudo (read-only).
 
@@ -148,8 +148,8 @@ Obrigatórios:
 |---|---|
 | Node.js >= 22 | `node --version` |
 | Playwright MCP | `claude mcp add playwright npx @playwright/mcp@latest` |
-| Deps do plugin | `npm install --prefix "${CLAUDE_PLUGIN_ROOT}"` |
-| Chromium | `npx playwright install chromium` |
+| Deps do plugin (`@playwright/test`, `@axe-core/playwright`) | `npm install --prefix "${CLAUDE_PLUGIN_ROOT}"` — verificado via `require.resolve()`, não só presença no `package.json` |
+| Chromium | `npx playwright install chromium` (roda automaticamente como `postinstall` do passo acima) |
 | Skill `webapp-testing` | `npx skills add https://github.com/anthropics/skills --skill webapp-testing` |
 | Skill `frontend-design` | `npx skills add https://github.com/anthropics/skills --skill frontend-design` |
 | Skill `ui-ux-pro-max` | `npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max` |
@@ -250,13 +250,15 @@ cc-testador-subagents/
 |   `-- fixtures/
 |       |-- axe-fixture.mjs
 |       |-- console-guard.mjs
+|       |-- flow-fixture.mjs
 |       `-- network-recorder.mjs
 |-- scripts/
-|   `-- (16 wrappers de compatibilidade)
+|   `-- (16 wrappers de compatibilidade, 1:1 com os CLIs canônicos abaixo)
 `-- skills/
     `-- testador-subagents/
         |-- SKILL.md
         |-- scripts/
+        |   |-- testador-spec.mjs (fonte de verdade doc<->código, não é CLI, sem wrapper)
         |   |-- (16 CLIs canônicos)
         |   `-- lib/
         |       `-- (20 módulos)

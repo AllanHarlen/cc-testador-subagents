@@ -107,3 +107,27 @@ test("status is failed when any required check fails, ok only when all required 
     .some((check) => check.required === true && check.ok === false);
   assert.equal(report.status, anyRequiredFailed ? "failed" : "ok");
 });
+
+test("capabilities.plugin-deps-installed passes and resolves @playwright/test + @axe-core/playwright from the real plugin root", () => {
+  const root = temporaryProject();
+  const report = runPreflight(root);
+  const depsCheck = report.checks.capabilities["plugin-deps-installed"];
+  assert.equal(depsCheck.required, true);
+  assert.equal(depsCheck.ok, true, JSON.stringify(depsCheck));
+  assert.ok(depsCheck.resolved["@playwright/test"]);
+  assert.ok(depsCheck.resolved["@axe-core/playwright"]);
+});
+
+test("capabilities.plugin-deps-installed fails when CLAUDE_PLUGIN_ROOT points at a root with no node_modules", () => {
+  const root = temporaryProject();
+  const fakePluginRoot = join(root, "fake-plugin-root");
+  mkdirSync(fakePluginRoot, { recursive: true });
+  const report = runPreflight(root, { CLAUDE_PLUGIN_ROOT: fakePluginRoot });
+  const depsCheck = report.checks.capabilities["plugin-deps-installed"];
+  assert.equal(depsCheck.ok, false);
+  assert.deepEqual(depsCheck.missing.sort(), ["@axe-core/playwright", "@playwright/test"]);
+  assert.ok(depsCheck.install[0].includes(fakePluginRoot));
+  assert.ok(report.failed.some((f) => f.name === "plugin-deps-installed"));
+  const remediation = report.remediation.find((r) => r.target === "plugin-runtime-deps");
+  assert.ok(remediation);
+});

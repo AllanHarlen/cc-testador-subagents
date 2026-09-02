@@ -1,15 +1,20 @@
 {
   "name": "cc-testador-subagents",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Infraestrutura de testes do plugin cc-testador-subagents. lib/ e scripts/ usam apenas builtins do Node; a unica camada com dependencia de runtime (Playwright + axe-core) vive isolada em runner/.",
+  "description": "Infraestrutura de testes do plugin cc-testador-subagents. lib/ e scripts/ usam apenas builtins do Node; a camada em runner/ depende de @playwright/test e @axe-core/playwright, declarados aqui como dependencies do pacote raiz.",
   "license": "MIT",
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "postinstall": "playwright install chromium"
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@playwright/test": "1.62.1",
+    "@axe-core/playwright": "4.13.0"
   },
   "devDependencies": {
     "fast-check": "4.9.0"

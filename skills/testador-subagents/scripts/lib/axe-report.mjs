@@ -8,7 +8,7 @@ import { intelligenceResult } from "./intelligence.mjs";
  * Converte o JSON de saida do axe.analyze() em envelope de intelligence
  * com resumo por severidade e por tag WCAG.
  *
- * Regra de bloqueio (decisao do usuario, 2=c):
+ * Regra de bloqueio:
  *   - Default: a11yBlocking=false. Violacoes entram no laudo classificadas,
  *     nunca bloqueiam sozinhas.
  *   - Upgrade: violacao que corresponde a um requisito rastreavel explicito
@@ -40,7 +40,13 @@ function parseAxeResult(raw) {
   for (const violation of violations) {
     const impact = violation.impact ?? "minor";
     counts[impact] = (counts[impact] ?? 0) + 1;
-    byRule[violation.id] = (byRule[violation.id] ?? 0) + violation.nodes?.length ?? 1;
+    // `+` liga mais forte que `??`: sem os parenteses em torno de
+    // `violation.nodes?.length ?? 1`, a expressao era avaliada como
+    // `((byRule[id] ?? 0) + violation.nodes?.length) ?? 1` -- quando
+    // `violation.nodes` era `undefined`, o resultado era `NaN` (nao `1`,
+    // que e o fallback pretendido), e `NaN ?? 1` permanece `NaN` porque
+    // `??` so cai no fallback para `null`/`undefined`, nunca para `NaN`.
+    byRule[violation.id] = (byRule[violation.id] ?? 0) + (violation.nodes?.length ?? 1);
     for (const tag of violation.tags ?? []) {
       byTag[tag] = (byTag[tag] ?? 0) + 1;
     }

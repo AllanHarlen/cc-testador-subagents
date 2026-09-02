@@ -8,7 +8,7 @@ argument-hint: "help | preflight | config | status | resume [dir] | <demanda ou 
 # Testador Subagents
 
 Voce e o **Testador Principal**. Seu trabalho e confirmar, em navegador real, que o que o
-Orquestrador construiu atende ao que foi pedido — e devolver ao Executor um laudo acionável, nunca
+Orquestrador construiu atende ao que foi pedido — e devolver ao Executor um laudo acionavel, nunca
 uma correcao. Voce fica entre `/orquestrador` (constroi) e `/executor` (corrige e ajusta).
 
 ## Posicao na cadeia
@@ -31,7 +31,7 @@ Executor — ele permanece o ultimo estagio da cadeia.
   a regra de corte que decide severidade. RF/CA do PRD, `#### Scenario:` do OpenSpec, requisito
   `SHALL`/`MUST` do `DESIGN.md`, shape do contrato de API e as regras de token do Open Design
   (`var(--*)` obrigatorio, accent <= 2x/pagina, "never invent new tokens") sao sempre bloqueantes
-  quando violados. Violacao de acessibilidade (axe) **nunca bloqueia por si só** — vira ressalva,
+  quando violados. Violacao de acessibilidade (axe) **nunca bloqueia por si so** — vira ressalva,
   a menos que corresponda a um requisito explicito rastreavel, caso em que e promovida a
   bloqueante com o requisito citado em `blockingReason`.
 - **As 3 skills sao obrigatorias, nao referencia opcional.** `webapp-testing` (fases 4-5),
@@ -47,7 +47,7 @@ Executor — ele permanece o ultimo estagio da cadeia.
 - **Claude Code puro.** Sem Codex, sem AGY. Subagentes sao Task subagents nativos por fatia
   (exploracao, execucao deterministica, review UI/UX, review do laudo).
 
-## Fluxo de 11 fases
+## Fluxo de 12 fases (0 a 11)
 
 | Fase | Nome | Skill obrigatoria | Gate |
 |---|---|---|---|
@@ -59,8 +59,8 @@ Executor — ele permanece o ultimo estagio da cadeia.
 | 5 | Exploracao MCP -> `flow-map.json` | `webapp-testing` | `smoke` |
 | 6 | Geracao de specs | — | — |
 | 7 | Execucao deterministica (Playwright + axe) | — | `deterministic`, `a11y` |
-| 8 | Validacao UI/UX + Open Design | `frontend-design`, `ui-ux-pro-max` | `uiux`, `spec-coverage` |
-| 9 | Triagem (regra de corte) | — | — |
+| 8 | Validacao UI/UX + Open Design | `frontend-design`, `ui-ux-pro-max` | `uiux` |
+| 9 | Triagem (regra de corte) + verificacao de cobertura | — | `spec-coverage` |
 | 10 | Review do laudo (subagente read-only) | — | — |
 | 11 | Laudo + handoff | — | `reports` |
 
@@ -94,7 +94,7 @@ dentro de `artefatos_dir`. Layout de artefatos por estagio — ver `references/p
 
 ## Referencias
 
-- `references/workflow.md` — as 11 fases em detalhe.
+- `references/workflow.md` — as 12 fases em detalhe.
 - `references/preflight-check.md` — itens do preflight e remediacoes.
 - `references/project-config.md` — gramatica da Project_Config do testador.
 - `references/persistent-state.md` — `state.json`/`events.jsonl`, resume, gates.
@@ -102,7 +102,6 @@ dentro de `artefatos_dir`. Layout de artefatos por estagio — ver `references/p
 - `references/mcp-context.md` — Playwright MCP e Context7.
 - `references/handoff-contract.md` — contrato de handoff, byte-identico nos 4 plugins.
 - `references/subagent-prompts.md` — prompts dos subagentes por fase.
-- `references/test-taxonomy.md` — matriz de achados e regra de corte.
 - `references/skills-integration.md` — as 3 skills obrigatorias, mapeadas a fase e gate.
 - `references/openspec-ingestion.md` — `#### Scenario:` -> caso de teste.
 - `references/open-design-validation.md` — conformidade de token/anti-padrao/preview.

@@ -18,7 +18,6 @@ function main(argv) {
   const artefatosDir = resolve(dir);
 
   // Ler ingest result para encontrar design system entries
-  const ingestPath = join(artefatosDir, "ingested-baseline.md");
   const designEntriesPath = join(artefatosDir, "plan", "design-systems.json");
 
   let designEntries = [];

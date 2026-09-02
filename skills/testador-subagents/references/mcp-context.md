@@ -27,7 +27,7 @@ claude mcp add playwright npx @playwright/mcp@latest
 1. `browser_navigate` para a URL.
 2. Aguardar rede quieta (networkidle).
 3. `browser_snapshot` **uma unica vez**.
-4. `browser_find` daí em diante.
+4. `browser_find` dai em diante.
 5. `--filename <path>` em console_messages para salvar em arquivo.
 
 ## Context7 MCP

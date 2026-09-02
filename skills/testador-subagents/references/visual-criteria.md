@@ -22,7 +22,7 @@ Se o design explicitamente pede um destes estilos, a deteccao e suprimida.
 
 ## Criterios de design system (ui-ux-pro-max)
 
-- Coerencia de padrão entre componentes e paginas.
+- Coerencia de padrao entre componentes e paginas.
 - Anti-padroes nomeados pelo ui-ux-pro-max ausentes.
 - Padroes de conversao adequados ao tipo de produto.
 

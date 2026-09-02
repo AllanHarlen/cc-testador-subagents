@@ -34,10 +34,12 @@
  *   node scripts/preflight.mjs # compatibility wrapper
  */
 
+import { createRequire } from "node:module";
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { readProjectConfig } from "./lib/project-config.mjs";
 import { ProjectConfigError } from "./lib/project-config.mjs";
@@ -216,6 +218,51 @@ function playwrightBrowsersDir() {
   return join(HOME, ".cache", "ms-playwright");
 }
 
+/**
+ * Raiz do plugin: este arquivo vive em `skills/testador-subagents/scripts/`;
+ * tres niveis acima chega na raiz (`scripts` -> `testador-subagents` ->
+ * `skills` -> raiz). Aceita `CLAUDE_PLUGIN_ROOT` como override.
+ */
+function resolvePluginRoot() {
+  if (process.env.CLAUDE_PLUGIN_ROOT) return resolve(process.env.CLAUDE_PLUGIN_ROOT);
+  return resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+}
+
+/**
+ * Verifica que os pacotes de runtime que `runner/` importa
+ * (`@playwright/test`, `@axe-core/playwright`) sao de fato resolviveis a
+ * partir da raiz do plugin -- nao apenas que o `package.json` os declara.
+ * `createRequire(...).resolve()` e o unico jeito confiavel de confirmar que
+ * `npm install` de fato populou `node_modules`; o antigo
+ * `checkChromiumInstalled()` inspeciona um cache de browsers completamente
+ * desconectado do `node_modules` do plugin e nunca detectaria esta classe
+ * de falha (dependencia declarada em package.json, nunca instalada).
+ */
+function checkPluginDependencies() {
+  const pluginRoot = resolvePluginRoot();
+  const require = createRequire(join(pluginRoot, "package.json"));
+  const packages = ["@playwright/test", "@axe-core/playwright"];
+  const missing = [];
+  const resolved = {};
+  for (const pkg of packages) {
+    try {
+      resolved[pkg] = require.resolve(pkg);
+    } catch {
+      missing.push(pkg);
+    }
+  }
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      pluginRoot,
+      missing,
+      error: `Missing plugin runtime dependencies: ${missing.join(", ")}.`,
+      install: [`npm install --prefix "${pluginRoot}"`],
+    };
+  }
+  return { ok: true, pluginRoot, resolved };
+}
+
 function checkChromiumInstalled() {
   const dir = playwrightBrowsersDir();
   if (!existsSync(dir)) {
@@ -373,6 +420,7 @@ const checks = {
   skills: skillChecks,
   capabilities: {
     "chromium-installed": checkChromiumInstalled(),
+    "plugin-deps-installed": checkPluginDependencies(),
   },
   permissions: {
     "bash-node-npx": finalBash,
@@ -397,7 +445,7 @@ const REQUIRED_BY_CHECK = {
   cli: { node: true },
   mcp: { playwright: true },
   skills: Object.fromEntries(REQUIRED_SKILLS.map((name) => [name, true])),
-  capabilities: { "chromium-installed": true },
+  capabilities: { "chromium-installed": true, "plugin-deps-installed": true },
   permissions: { "bash-node-npx": true },
 };
 
@@ -463,6 +511,15 @@ function remediationFor(f) {
       };
     case "capability:chromium-installed":
       return { target: "playwright-chromium", steps: ["Download the Chromium browser Playwright needs:", "  npx playwright install chromium"], docs: null };
+    case "capability:plugin-deps-installed":
+      return {
+        target: "plugin-runtime-deps",
+        steps: [
+          `Install this plugin's own runtime dependencies (@playwright/test, @axe-core/playwright): ${f.install?.[0] ?? 'npm install --prefix "${CLAUDE_PLUGIN_ROOT}"'}`,
+          "This also runs the postinstall hook that downloads Chromium.",
+        ],
+        docs: null,
+      };
     case "permission:bash-node-npx":
       return {
         target: "Claude Code permission: node/npx via Bash",

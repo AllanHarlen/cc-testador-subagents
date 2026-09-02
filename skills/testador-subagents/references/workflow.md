@@ -1,6 +1,6 @@
 # Workflow — Testador Subagents
 
-Detalhamento das 11 fases. Ver SKILL.md para a visao geral e tabela de gates.
+Detalhamento das 12 fases (0 a 11). Ver SKILL.md para a visao geral e tabela de gates.
 
 ## Fase 0 — Preflight
 
@@ -49,8 +49,25 @@ Sem fonte formal: gate `spec-coverage` degrada e registra — nunca finge cobert
 node "${CLAUDE_SKILL_DIR}/scripts/testador-gates.mjs" plan \
   --scope <SMOKE|STANDARD|FULL> \
   [--has-frontend bool] [--has-api bool] [--separate-origin bool] \
-  [--joint-mode bool] [--has-openspec bool] [--has-open-design bool]
+  [--joint-mode bool] [--has-openspec bool] [--has-open-design bool] \
+  > {artefatos_dir}/plan/gates-plan.json
 ```
+
+Logo depois, aplique o resultado (`{gates, skipped}`) ao run ja inicializado na fase 0:
+
+```bash
+node "${CLAUDE_SKILL_DIR}/scripts/testador-state.mjs" gates-apply \
+  --dir {artefatos_dir} --gates-plan {artefatos_dir}/plan/gates-plan.json
+```
+
+Isso determina quais dos 4 completion gates waivable (`deterministic`, `a11y`, `uiux`,
+`spec-coverage`) ficam `required: true` nesta run, via
+`lib/gates.mjs::completionGateRequirements()`. Sem esse passo, todo gate waivable
+nasce `required: false` e um `N/A` posterior nunca registra waiver de verdade — o run
+fecharia `DONE` mesmo tendo pulado etapas que o plano exigia. (`testador-state.mjs init`
+tambem aceita `--gates-plan` diretamente quando o contexto de escopo ja e conhecido
+antes da fase 0; `gates-apply` cobre o caso comum em que o plano so existe apos a
+ingestao/descoberta das fases 1-2.)
 
 ## Fase 4 — Subida da stack (skill webapp-testing)
 
@@ -64,7 +81,7 @@ Falha em subir = achado bloqueante `STACK_DOWN`. Gate `stack` fecha ou nao.
 Protocolo obrigatorio (ver references/subagent-prompts.md, secao 1):
 - `browser_navigate` -> aguardar `networkidle`
 - `browser_snapshot` **uma unica vez**
-- `browser_find` daí em diante (busca na arvore de a11y, barato)
+- `browser_find` dai em diante (busca na arvore de a11y, barato)
 - `browser_console_messages --level error --filename <path>`
 - `browser_network_requests`
 - `browser_take_screenshot`
@@ -83,14 +100,17 @@ Credenciais: nunca como valor literal, sempre `process.env.X`.
 ## Fase 7 — Execucao deterministica
 
 ```bash
-TESTADOR_ARTIFACTS_DIR={artefatos_dir} TESTADOR_BASE_URL={baseUrl} \
-  npx playwright test --config "${CLAUDE_PLUGIN_ROOT}/runner/playwright.config.mjs"
+node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} [--base-url <url>]
 ```
 
-Seguido de:
+`run-specs.mjs` e o wrapper canonico do `@playwright/test` do proprio plugin (resolve
+`node_modules/@playwright/test/cli.js` na raiz do plugin, sem depender de `npx` estar
+no PATH nem instalar nada sob demanda) — preflight (`capabilities.plugin-deps-installed`)
+garante que a dependencia esta presente antes desta fase rodar. Seguido de:
+
 ```bash
 node "${CLAUDE_SKILL_DIR}/scripts/collect-test-results.mjs" --dir {artefatos_dir}
-node "${CLAUDE_SKILL_DIR}/scripts/collect-a11y-results.mjs" --dir {artefatos_dir}
+node "${CLAUDE_SKILL_DIR}/scripts/collect-a11y-results.mjs" --dir {artefatos_dir} [--a11y-blocking bool]
 ```
 
 Gates `deterministic` e `a11y` fecham (ou ficam N/A se nao aplicavel).
@@ -104,15 +124,23 @@ Quando Open Design presente:
 node "${CLAUDE_SKILL_DIR}/scripts/check-design-conformance.mjs" --dir {artefatos_dir}
 ```
 
-Gates `uiux` e `spec-coverage` fecham.
+Gate `uiux` fecha. `spec-coverage` fecha na fase 9 (build-coverage-matrix.mjs roda de
+novo, agora com o resultado da execucao para confirmar cobertura de fato, nao apenas
+planejada) — ver `lib/gates.mjs::COMPLETION_GATE_BY_PLAN_GATE`.
 
 ## Fase 9 — Triagem
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/scripts/triage-findings.mjs" --dir {artefatos_dir}
+node "${CLAUDE_SKILL_DIR}/scripts/triage-findings.mjs" --dir {artefatos_dir} \
+  [--a11y-blocking bool] [--has-open-design bool]
 ```
 
-Regra de corte: requisito explicito violado = bloqueante, boa pratica nao pedida = informativo.
+Regra de corte: requisito explicito violado = bloqueante, boa pratica nao pedida =
+informativo. `--has-open-design true` torna as 5 categorias `DESIGN_*` sempre
+bloqueantes (existe um contrato de tokens declarado para violar); sem essa flag, elas
+seguem a regra generica (bloqueante somente com requisito rastreavel). O correlacionador
+2xx-sem-efeito-na-UI le `{artefatos_dir}/run/network-calls.jsonl`, gravado pelos specs
+gerados via `runner/fixtures/flow-fixture.mjs::persistFlowEvidence` durante a fase 7.
 
 ## Fase 10 — Review do laudo
 

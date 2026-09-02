@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   COMPLETION_GATE_DEFINITIONS,
   TestadorStateError,
+  applyCompletionGateRequirements,
   findRunDirectory,
   heartbeatTask,
   initRun,
@@ -19,6 +21,7 @@ import {
   updateTaskStatus,
   verifyRun,
 } from "./lib/testador-state.mjs";
+import { completionGateRequirements } from "./lib/gates.mjs";
 
 /**
  * CLI de `testador-state.mjs` (`node "${CLAUDE_SKILL_DIR}/scripts/testador-state.mjs" <comando>`).
@@ -62,6 +65,14 @@ function required(args, key, fallback = undefined) {
 
 function number(value, fallback = undefined) {
   if (value === undefined) return fallback;
+  // `Number(true)` e 1: uma flag numerica sem valor (`--phase`, `--api-calls`)
+  // viraria silenciosamente 1 sem este guard, em vez do erro INVALID_NUMBER
+  // que o restante do contrato de CLI promete (mesma classe de bug que
+  // `cli-utils.mjs::numberArg` corrige e que `tests/cli-contract.test.mjs`
+  // trava para o resto do plugin).
+  if (value === true) {
+    throw new TestadorStateError("INVALID_NUMBER", "Expected a number, received a flag with no value");
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) throw new TestadorStateError("INVALID_NUMBER", `Expected a number, received ${value}`);
   return parsed;
@@ -87,8 +98,22 @@ function commonOptions(args) {
   };
 }
 
+function readValidationsFile(path) {
+  let raw;
+  try {
+    raw = readFileSync(resolve(String(path)), "utf8");
+  } catch (error) {
+    throw new TestadorStateError("INVALID_VALIDATIONS_FILE", `Could not read --validations-file ${path}: ${error.message}`);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new TestadorStateError("INVALID_VALIDATIONS_FILE", `--validations-file ${path} is not valid JSON: ${error.message}`);
+  }
+}
+
 function taskOptions(args) {
-  const validations = args["validations-file"] ? JSON.parse(readFileSync(args["validations-file"], "utf8")) : undefined;
+  const validations = args["validations-file"] ? readValidationsFile(args["validations-file"]) : undefined;
   return {
     ...commonOptions(args),
     executor: args.executor,
@@ -122,13 +147,14 @@ function help() {
     name: "testador-state",
     purpose: "Durable per-run state machine for cc-testador-subagents",
     commands: {
-      init: "init [--slug <slug>] --dir <artefatos_dir> [--phase 0]",
+      init: "init [--slug <slug>] --dir <artefatos_dir> [--phase 0] [--gates-plan <planGates-output.json>]",
       "task register": "task register --dir <dir> --task <id> [--title text] [--expected-file path]... [--allowed-path glob]...",
       task: "task --dir <dir> --task <id> --status <canonical-status> [session/evidence fields]",
       heartbeat: "heartbeat --dir <dir> --task <id> [--api-calls N] [--tool-calls N] [--current-tool name]",
       sweep: "sweep --dir <dir> [--stale-idle-seconds 450] [--stale-in-tool-seconds 1200] [--stall-grace-seconds 120]",
       phase: "phase --dir <dir> --phase <n> --status RUNNING|DONE|FAILED|BLOCKED|CANCELLED|UNKNOWN",
-      gate: "gate --dir <dir> --gate stack|smoke|deterministic|a11y|uiux|spec-coverage|reports --status PENDING|DONE|BLOCKED|N/A [--required bool] [--evidence id]... [--reason text]",
+      gate: "gate --dir <dir> --gate stack|smoke|deterministic|a11y|uiux|spec-coverage|reports --status PENDING|DONE|BLOCKED|N/A [--required bool] [--unwaive bool] [--evidence id]... [--reason text]",
+      "gates-apply": "gates-apply --dir <dir> --gates-plan <testador-gates.mjs-plan-output.json>",
       reconcile: "reconcile --dir <dir> [--probe-file <json>]",
       resume: "resume [--dir <dir>] [--root <project>] [--probe-file <json>]",
       run: "run --dir <dir> --status RUNNING|DONE|FAILED|BLOCKED|STALLED|CANCELLED|UNKNOWN",
@@ -168,6 +194,15 @@ function execute(argv) {
         runId: args["run-id"],
         phase: number(args.phase, 0),
         lastSafePhase: number(args["last-safe-phase"]),
+        // `--gates-plan <json>` carrega o resultado de `testador-gates.mjs
+        // plan` (ver lib/gates.mjs::planGates); computamos aqui quais dos 4
+        // completion gates waivable devem nascer required:true, para que o
+        // waiver (N/A apos required) e RUN_GATES_WAIVED funcionem de
+        // verdade nesta run. Sem a flag, comportamento legado (todo gate
+        // waivable nasce required:false).
+        completionGateRequirements: args["gates-plan"]
+          ? completionGateRequirements(JSON.parse(readFileSync(resolve(String(args["gates-plan"])), "utf8")))
+          : undefined,
       });
     case "task":
       if (isTaskRegister) {
@@ -198,7 +233,14 @@ function execute(argv) {
         required: bool(args.required),
         evidence: args.evidence,
         reason: args.reason,
+        unwaive: bool(args.unwaive, false),
       });
+    case "gates-apply":
+      return applyCompletionGateRequirements(
+        artifactDir(args),
+        completionGateRequirements(JSON.parse(readFileSync(resolve(String(required(args, "gates-plan"))), "utf8"))),
+        common,
+      );
     case "reconcile":
       return reconcileRunAtDirectory(artifactDir(args), common);
     case "resume": {

@@ -27,7 +27,7 @@ com o `tokens.css` materializado (`materializeInto`). Detecta:
 
 O subagente de fase 8 usa Playwright MCP para:
 1. `browser_evaluate` -> `getComputedStyle` dos elementos-chave.
-2. Verificar que propriedades de cor/espaçamento usam `var(--*)` e nao hex literal.
+2. Verificar que propriedades de cor/espacamento usam `var(--*)` e nao hex literal.
 3. Contar aparicoes do accent.
 4. Verificar anti-padroes da §9 contra a pagina renderizada.
 

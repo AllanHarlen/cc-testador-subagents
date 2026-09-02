@@ -9,7 +9,13 @@ import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { GatesError, VALID_SCOPES, planGates } from "../skills/testador-subagents/scripts/lib/gates.mjs";
+import {
+  COMPLETION_GATE_BY_PLAN_GATE,
+  GatesError,
+  VALID_SCOPES,
+  completionGateRequirements,
+  planGates,
+} from "../skills/testador-subagents/scripts/lib/gates.mjs";
 
 const SCRIPT = fileURLToPath(new URL("../skills/testador-subagents/scripts/testador-gates.mjs", import.meta.url));
 
@@ -146,4 +152,64 @@ test("CLI: plan --scope SMOKE returns ok: true with a non-empty gates list", () 
 
 test("VALID_SCOPES is frozen", () => {
   assert.ok(Object.isFrozen(VALID_SCOPES));
+});
+
+// --- completionGateRequirements: bridge from plan gates to completion gates ---
+
+test("completionGateRequirements: SMOKE scope requires none of the 4 waivable completion gates", () => {
+  const plan = planGates({ scope: "SMOKE", hasFrontend: true });
+  const requirements = completionGateRequirements(plan);
+  assert.deepEqual(requirements, {
+    deterministic: false,
+    a11y: false,
+    uiux: false,
+    "spec-coverage": false,
+  });
+});
+
+test("completionGateRequirements: STANDARD with frontend requires deterministic, a11y and uiux", () => {
+  const plan = planGates({ scope: "STANDARD", hasFrontend: true });
+  const requirements = completionGateRequirements(plan);
+  assert.equal(requirements.deterministic, true, "run-specs/collect-results are planned");
+  assert.equal(requirements.a11y, true, "a11y-scan is planned when hasFrontend");
+  assert.equal(requirements.uiux, true, "uiux-review is always planned when hasFrontend");
+});
+
+test("completionGateRequirements: a11y is not required when hasFrontend is false (skipped, not waived)", () => {
+  const plan = planGates({ scope: "STANDARD", hasFrontend: false });
+  const requirements = completionGateRequirements(plan);
+  assert.equal(requirements.a11y, false);
+  assert.equal(requirements.uiux, false);
+});
+
+test("completionGateRequirements: spec-coverage is required only when coverage-check was planned (hasOpenSpec/jointMode)", () => {
+  const withSpec = completionGateRequirements(planGates({ scope: "FULL", hasFrontend: true, hasOpenSpec: true }));
+  assert.equal(withSpec["spec-coverage"], true);
+
+  const without = completionGateRequirements(planGates({ scope: "FULL", hasFrontend: true, hasOpenSpec: false, jointMode: false }));
+  assert.equal(without["spec-coverage"], false);
+});
+
+test("COMPLETION_GATE_BY_PLAN_GATE only maps to the 4 waivable completion gate ids plus reports/stack/smoke", () => {
+  const mapped = new Set(Object.values(COMPLETION_GATE_BY_PLAN_GATE));
+  for (const id of mapped) {
+    assert.ok(
+      ["stack", "smoke", "deterministic", "a11y", "uiux", "spec-coverage", "reports"].includes(id),
+      `unexpected completion gate id: ${id}`,
+    );
+  }
+});
+
+test("script-kind gate commands only use flags the target canonical CLI actually accepts", () => {
+  // generate-specs.mjs and run-specs.mjs accept --dir/--base-url (not
+  // --flow-map/--coverage-matrix, which generate-specs.mjs never parses).
+  const { gates } = planGates({ scope: "FULL", hasFrontend: true, hasOpenSpec: true, hasOpenDesign: true, jointMode: true });
+  const bySpec = Object.fromEntries(gates.filter((g) => g.kind === "script").map((g) => [g.id, g.command]));
+  assert.deepEqual(bySpec["generate-specs"].slice(2), ["--dir", "{artefatos_dir}", "--base-url", "{base_url}"]);
+  assert.deepEqual(bySpec["run-specs"].slice(2), ["--dir", "{artefatos_dir}", "--base-url", "{base_url}"]);
+  assert.deepEqual(bySpec["collect-results"].slice(2), ["--dir", "{artefatos_dir}"]);
+  assert.deepEqual(
+    bySpec["coverage-check"].slice(2),
+    ["--root", "{project_root}", "--requirements-index", "{requirements_index_path}", "--openspec-change", "{openspec_change_dir}"],
+  );
 });

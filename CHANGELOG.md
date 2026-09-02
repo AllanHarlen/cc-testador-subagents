@@ -22,3 +22,66 @@ devolve um laudo triado ao Executor via `handoff.json`.
   skill que ele carrega.
 - `tests/cli-contract.test.mjs`, `tests/manifest-consistency.test.mjs` (novos): trava o contrato de
   CLI e a consistencia de versao entre `plugin.json`/`marketplace.json`/`package.json`.
+
+## [1.1.0] - 2026-09-02 - Fase 7 executavel, injecao fechada, gates reconciliados
+
+Corrige os bloqueadores que impediam a fase 7 (execucao deterministica) de rodar, fecha
+a injecao de codigo no gerador de specs, e reconcilia a camada de gates/triagem com a
+regra de corte documentada.
+
+- `package.json` (alterado): declara `@playwright/test@1.62.1` e `@axe-core/playwright@4.13.0`
+  como `dependencies` pinadas (antes ausentes; a fase 7 nao tinha como executar). Adiciona
+  `postinstall: playwright install chromium`.
+- `skills/testador-subagents/scripts/collect-test-results.mjs`, `run-specs.mjs`,
+  `testador-probe.mjs` (novos): os tres CLIs canonicos que os wrappers de `scripts/`
+  ja referenciavam sem existir. `run-specs.mjs` executa `@playwright/test` via
+  `node_modules/@playwright/test/cli.js`, sem `npx`/shell.
+  `skills/testador-subagents/scripts/lib/playwright-report.mjs` (antes codigo morto)
+  passa a ter consumidor.
+- `runner/fixtures/flow-fixture.mjs` (novo): fixture combinado (`consoleErrors` +
+  `apiCalls` + `domAssertions` + persistencia em `run/network-calls.jsonl`) que os specs
+  gerados agora importam — corrige o fixture inexistente que quebrava toda execucao.
+  `console-guard.mjs`/`network-recorder.mjs`/`axe-fixture.mjs` exportam a funcao de
+  fixture separadamente para permitir composicao.
+- `skills/testador-subagents/scripts/lib/spec-generator.mjs` (reescrito): todo valor
+  dinamico de `flow-map.json`/`coverage-matrix.json` passa por `JSON.stringify` (nunca
+  `replace()` manual) antes de entrar no `.spec.mjs` gerado — fecha os quatro pontos de
+  injecao de codigo do gerador anterior. Valida `process.env.NOME` por regex de match
+  completo. Rejeita `artefatosDir` fora de uma arvore `.testador/` (`assertInsideTestadorRoot`).
+- `runner/playwright.config.mjs`: projeto `chromium-mobile` forca `browserName: "chromium"`
+  (antes herdava WebKit do descritor `devices["iPhone 12"]`, incompativel com o unico
+  browser que o preflight instala).
+- `runner/server-lifecycle.mjs` (reescrito): `tokenizeCommand` tokeniza `startCommand`
+  sem shell, rejeitando metacaractere de shell fora de aspas — fecha a injecao de comando
+  que `shell: true` permitia. `killTree` mata a arvore de processos (`taskkill /T /F` no
+  Windows, `process.kill(-pid)` em POSIX). Fail-fast quando o processo filho morre antes
+  da porta abrir.
+- `skills/testador-subagents/scripts/lib/gates.mjs`: `COMPLETION_GATE_BY_PLAN_GATE` e
+  `completionGateRequirements()` ligam o plano de gates (fase 3) aos completion gates
+  waivable (fase 7-9), via novo comando `testador-state.mjs gates-apply`. Corrige os
+  `command` de `generate-specs`/`run-specs`/`coverage-check` para as flags reais das CLIs.
+- `skills/testador-subagents/scripts/lib/testador-state.mjs`: guarda de monotonicidade em
+  `requiredOverride` (`--unwaive` explicito exigido para reabrir um gate waived). Corrige
+  `RUN_GATES_WAIVED` para exigir `status === "N/A"` (antes disparava para qualquer
+  `requiredOverride === false`, incluindo gates marcados nao-aplicaveis sem nunca terem
+  sido fechados `N/A`).
+- `skills/testador-subagents/scripts/lib/finding-triage.mjs` (reescrito): categorias
+  `DESIGN_*` so sao always-blocking com `hasOpenDesign: true` (antes sempre bloqueantes,
+  invertendo a regra de corte documentada). Achado sem `category` ou com categoria fora
+  de `FINDING_CATEGORIES` agora e bloqueante (fail-closed; antes caia em informativo por
+  default). Heuristica de requisito rastreavel reescrita por overlap de palavras
+  significativas (corrige promocao espuria por stopword). Correlacionador 2xx-sem-efeito
+  agora recebe dados reais via `run/network-calls.jsonl`.
+- `skills/testador-subagents/scripts/lib/axe-report.mjs`: corrige bug de precedencia de
+  operador em `byRule` (`+` antes de `??` produzia `NaN`).
+- `skills/testador-subagents/scripts/preflight.mjs`: novo check
+  `capabilities.plugin-deps-installed` (`require.resolve()` de `@playwright/test` e
+  `@axe-core/playwright`) — o antigo `chromium-installed` inspecionava um cache de
+  browsers desconectado do `node_modules` do plugin e nunca detectaria a dependencia ausente.
+- Documentacao: referencias corrigidas em `SKILL.md`/`references/*.md` (fase do
+  `spec-coverage`, "12 fases" em vez de "11 fases", fixture path, comandos de fase 7/9),
+  paridade entre `README.md`/`README.pt-BR.md`, seis vazamentos de acento na convencao
+  pt-sem-acentos.
+- `tests/docs-links.test.mjs`, `tests/testador-state-cli.test.mjs` (novos): guardas de
+  invariante para bijecao wrapper/canonico, resolucao de referencias de doc, contagens do
+  Layout, e comportamento de CLI a nivel de processo.

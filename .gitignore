@@ -33,6 +33,7 @@ runner/node_modules/
 # --- logs e saida de CI ---
 *.log
 npm-debug.log*
+test-output*.txt
 
 # --- IDE e OS ---
 .DS_Store

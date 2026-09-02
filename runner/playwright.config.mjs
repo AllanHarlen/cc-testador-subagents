@@ -40,6 +40,11 @@ export default defineConfig({
       name: "chromium-mobile",
       use: {
         ...devices["iPhone 12"],
+        // devices["iPhone 12"] traz defaultBrowserType: "webkit" -- forcar
+        // browserName aqui garante que o projeto roda em Chromium (o unico
+        // browser que preflight/README instalam), mantendo viewport/UA/
+        // isMobile/hasTouch do descritor iPhone 12.
+        browserName: "chromium",
         channel: "chromium",
       },
     },
@@ -54,5 +59,7 @@ export default defineConfig({
   // Sem retries em batch de validacao -- achado e achado.
   retries: 0,
   timeout: 30_000,
+  expect: { timeout: 10_000 },
   workers: 1,
+  forbidOnly: true,
 });

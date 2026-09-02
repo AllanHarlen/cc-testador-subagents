@@ -114,3 +114,60 @@ test("summary.total accounts for both raw and correlated findings", () => {
   assert.equal(result.summary.total, 2); // 1 a11y + 1 correlated UI_DATA_MISMATCH
   assert.equal(result.runStatus, "REPROVADO"); // UI_DATA_MISMATCH is always blocking
 });
+
+// --- fail-closed on missing/unknown category ---
+
+test("a finding with no category is blocking (fail-closed, pending manual triage)", () => {
+  const result = classifyFinding({ title: "something happened" }, []);
+  assert.equal(result.blocking, true);
+  assert.match(result.blockingReason, /MISSING_CATEGORY/);
+});
+
+test("a finding with an unknown/misspelled category is blocking (fail-closed)", () => {
+  const result = classifyFinding({ category: "TYPO_CATGEORY", title: "x" }, []);
+  assert.equal(result.blocking, true);
+  assert.match(result.blockingReason, /UNKNOWN_CATEGORY/);
+});
+
+// --- DESIGN_* categories: blocking only with hasOpenDesign ---
+
+test("DESIGN_TOKEN_LITERAL is informative (no requirement) when hasOpenDesign is false", () => {
+  const result = classifyFinding({ category: "DESIGN_TOKEN_LITERAL", title: "hex literal found" }, [], false, { hasOpenDesign: false });
+  assert.equal(result.blocking, false);
+});
+
+test("DESIGN_TOKEN_LITERAL is always blocking when hasOpenDesign is true", () => {
+  const result = classifyFinding({ category: "DESIGN_TOKEN_LITERAL", title: "hex literal found" }, [], false, { hasOpenDesign: true });
+  assert.equal(result.blocking, true);
+  assert.match(result.blockingReason, /Open Design/);
+});
+
+test("DESIGN_ACCENT_OVERUSE without hasOpenDesign is still blocking if a traceable requirement matches", () => {
+  const requirements = [{ id: "RF-09", title: "accent color usage must follow the design system palette limits", criteria: [] }];
+  const result = classifyFinding(
+    { category: "DESIGN_ACCENT_OVERUSE", title: "accent color usage palette limits exceeded" },
+    requirements,
+    false,
+    { hasOpenDesign: false },
+  );
+  assert.equal(result.blocking, true);
+});
+
+// --- hasTraceableRequirement: no longer promiscuous on stopwords/short tokens ---
+
+test("a finding does not get promoted to blocking just because the requirement starts with a stopword", () => {
+  // Titulo do requisito comeca com "The" (stopword) -- a heuristica antiga
+  // (`needle.includes(haystack.split(' ')[0])`) promovia qualquer achado
+  // cujo titulo contivesse a substring "the". A nova exige sobreposicao de
+  // palavras significativas, nao apenas o primeiro token.
+  const requirements = [{ id: "RF-20", title: "The login form must validate email format", criteria: [] }];
+  const result = classifyFinding({ category: "QUALITY_FLOOR", title: "The button color feels off" }, requirements);
+  assert.equal(result.blocking, false, "unrelated finding must not match on a single stopword-adjacent token");
+});
+
+test("a finding IS promoted to blocking when it shares multiple significant words with the requirement", () => {
+  const requirements = [{ id: "RF-21", title: "keyboard focus must be visible on all interactive buttons", criteria: [] }];
+  const result = classifyFinding({ category: "QUALITY_FLOOR", title: "keyboard focus not visible on buttons" }, requirements);
+  assert.equal(result.blocking, true);
+  assert.match(result.blockingReason, /RF-21/);
+});
