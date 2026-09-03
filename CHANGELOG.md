@@ -2,6 +2,37 @@
 
 Todas as mudancas notaveis deste plugin sao documentadas aqui.
 
+## [1.1.1] - 2026-09-03 - Sincronizacao pos-cloud: gate de a11y honesto, ingest sem off-by-one, preflight nao mutante
+
+Correcoes encontradas numa revisao de bugs/performance/gaps de negocio apos os tres plugins
+irmaos sincronizarem `HANDOFF_STAGES`/`handoff-contract.md` com o estagio Testador
+(ver changelog de `cc-pensador`, `cc-orchestrador-subagents` e `cc-executor-subagents` na mesma
+data). Nenhuma mudanca de superficie de comando; todas as correcoes sao de comportamento interno.
+
+- `skills/testador-subagents/references/handoff-contract.md` (alterado, replicado byte-a-byte
+  nos quatro plugins): a secao 9 afirmava que `assets/handoff.schema.json` e
+  `scripts/lib/handoff-validator.mjs` sao byte-identicos nos quatro plugins — falso (schemas tem
+  checksums e contagem de linhas diferentes; o validador tem divergencias pontuais documentadas
+  como intencionais, ex. regra de `nextStage` do Executor). A secao agora declara a garantia real:
+  byte-identidade e exigencia so deste arquivo (secao 8); schema e validador sao cobertos por
+  equivalencia semantica testada contra a tabela de roles.
+- `skills/testador-subagents/scripts/lib/axe-report.mjs` (alterado): `collectAxeResults()`
+  descartava o `found:false` de `parseAxeReport()` e sempre reportava `status: "PASS"` quando
+  `run/axe-results.json` nao existia — um scan de acessibilidade que nunca rodou aprovava
+  silenciosamente. Agora devolve `status: "NOT_RUN"` e `scanExecuted: false` nesse caso;
+  `references/workflow.md` (Fase 7) instrui a nao fechar o gate `a11y` obrigatorio como `DONE`
+  quando o status for `NOT_RUN`.
+- `skills/testador-subagents/scripts/lib/upstream-ingest.mjs` (alterado): `openSpecChangeName`
+  usava `dirname(openSpecChangePath).split(/[\\/]/).at(-1)`, que devolvia o nome do diretorio
+  **pai** (`"changes"`) em vez do nome do change set (`"add-login"`) — off-by-one confirmado
+  empiricamente. Corrigido para `basename(openSpecChangePath)`.
+- `skills/testador-subagents/scripts/preflight.mjs` (alterado): rodava
+  `autoRemediateTestadorBashPermission()` incondicionalmente, escrevendo em
+  `.claude/settings.json` do projeto-alvo mesmo quando o chamador so queria consultar o estado.
+  Novo flag `--check-only`/`--dry-run` reporta sem gravar (`references/preflight-check.md`).
+- `tests/axe-report.test.mjs`, `tests/upstream-ingest.test.mjs` (alterados): cobrem os dois
+  fixes acima (`status: "NOT_RUN"` e `openSpecChangeName` correto).
+
 ## [1.0.0] - 2026-09-01 - Primeira versao: QA em navegador real entre Orquestrador e Executor
 
 Cria o `cc-testador-subagents` como quarto estagio da cadeia

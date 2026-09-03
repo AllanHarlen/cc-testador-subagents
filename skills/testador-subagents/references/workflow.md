@@ -113,7 +113,7 @@ node "${CLAUDE_SKILL_DIR}/scripts/collect-test-results.mjs" --dir {artefatos_dir
 node "${CLAUDE_SKILL_DIR}/scripts/collect-a11y-results.mjs" --dir {artefatos_dir} [--a11y-blocking bool]
 ```
 
-Gates `deterministic` e `a11y` fecham (ou ficam N/A se nao aplicavel).
+Gates `deterministic` e `a11y` fecham (ou ficam N/A se nao aplicavel). `collect-a11y-results.mjs` devolve `status: "NOT_RUN"` quando `run/axe-results.json` nao existe (o scan do axe nunca rodou) — isso **nao** e equivalente a `PASS`; quando o gate `a11y` for `required: true` (ha front-end), so feche-o como `DONE` se `status` for `PASS` ou `FAIL`. Em `NOT_RUN` com gate obrigatorio, o gate fica aberto e a Fase 9 (triagem) deve registrar o achado "scan de acessibilidade nao executado" como bloqueante — nunca aprove silenciosamente por ausencia de dados.
 
 ## Fase 8 — Validacao UI/UX (skills frontend-design + ui-ux-pro-max)
 

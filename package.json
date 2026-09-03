@@ -1,6 +1,6 @@
 {
   "name": "cc-testador-subagents",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "type": "module",
   "description": "Infraestrutura de testes do plugin cc-testador-subagents. lib/ e scripts/ usam apenas builtins do Node; a camada em runner/ depende de @playwright/test e @axe-core/playwright, declarados aqui como dependencies do pacote raiz.",

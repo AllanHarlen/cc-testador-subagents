@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { validateHandoff } from "./handoff-validator.mjs";
 
@@ -246,7 +246,7 @@ function buildIngest(orchestradorHandoff, pensadorHandoff, projectRoot) {
     if (entry) {
       hasOpenSpec = true;
       openSpecChangePath = resolve(projectRoot, entry.path);
-      openSpecChangeName = dirname(openSpecChangePath).split(/[\\/]/).at(-1) ?? null;
+      openSpecChangeName = basename(openSpecChangePath) || null;
     }
   }
 

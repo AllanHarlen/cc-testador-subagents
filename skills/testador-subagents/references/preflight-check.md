@@ -24,3 +24,17 @@ Quando um item **obrigatorio** falha, o preflight mostra a remediacao exata e pe
 Quando `serverLifecycle: auto` (default), o preflight reporta em `checks.optional.python3`
 se o Python esta disponivel. Sem Python, `runner/server-lifecycle.mjs` e usado no lugar
 de `with_server.py`.
+
+## `--check-only`
+
+Por padrao, quando `Bash(node:*)`/`Bash(npx:*)` estao ausentes, o preflight
+**escreve** em `.claude/settings.json` para auto-remediar (linha da tabela acima).
+Para apenas consultar o estado sem qualquer escrita — por exemplo antes de decidir
+se vale rodar o preflight de verdade, ou em contextos read-only —, rode:
+
+```bash
+node "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" --check-only
+```
+
+`checks.permissions["bash-node-npx"]` reflete o estado atual sem tentativa de
+correcao, e `autoRemediation.action` vem `"skipped-check-only"`.

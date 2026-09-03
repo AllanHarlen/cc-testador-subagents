@@ -401,9 +401,13 @@ function checkProjectConfig() {
   }
 }
 
+const CHECK_ONLY = process.argv.includes("--check-only") || process.argv.includes("--dry-run");
+
 const initialBash = checkTestadorBashPermission();
-const autoRemediation = autoRemediateTestadorBashPermission(initialBash);
-const finalBash = checkTestadorBashPermission();
+const autoRemediation = CHECK_ONLY
+  ? { attempted: false, changed: false, target: PROJECT_SETTINGS_FILE, action: "skipped-check-only", revalidated: false, ok: initialBash.ok }
+  : autoRemediateTestadorBashPermission(initialBash);
+const finalBash = CHECK_ONLY ? initialBash : checkTestadorBashPermission();
 
 const skillChecks = detectRequiredSkills({ home: HOME, cwd: PROJECT_ROOT });
 

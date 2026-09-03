@@ -77,6 +77,16 @@ test("collectAxeResults status is FAIL when a11yBlocking=true and there are viol
   assert.equal(result.summary.status, "FAIL");
 });
 
+test("collectAxeResults status is NOT_RUN (not PASS) when the scan never wrote axe-results.json", () => {
+  const root = fixture();
+  const artefatosDir = join(root, "artefatos");
+  mkdirSync(join(artefatosDir, "run"), { recursive: true });
+
+  const result = collectAxeResults(artefatosDir, { a11yBlocking: false });
+  assert.equal(result.summary.status, "NOT_RUN", "missing scan must not silently report PASS");
+  assert.equal(result.summary.scanExecuted, false);
+});
+
 test("collectAxeResults emits an intelligence envelope", () => {
   const root = fixture();
   const artefatosDir = join(root, "artefatos");

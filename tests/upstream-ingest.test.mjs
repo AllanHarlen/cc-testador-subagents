@@ -152,6 +152,7 @@ test("detects hasOpenSpec from openspec-change role in Pensador artifacts", () =
   const result = ingestUpstream({ projectRoot: root });
   assert.equal(result.ingest.hasOpenSpec, true);
   assert.ok(result.ingest.openSpecChangePath);
+  assert.equal(result.ingest.openSpecChangeName, "login-social-v1", "must derive the change directory name, not its parent (`changes`)");
 });
 
 test("returns ambiguous mode when multiple Orchestrador slugs exist without explicit slug", () => {

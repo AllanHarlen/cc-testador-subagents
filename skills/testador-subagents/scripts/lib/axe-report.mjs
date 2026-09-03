@@ -88,13 +88,14 @@ export function collectAxeResults(artefatosDir, options = {}) {
   const a11yBlocking = options.a11yBlocking ?? false;
 
   const summary = {
+    scanExecuted: parsed.found,
     routesScanned: options.routesScanned ?? null,
     violations: parsed.counts,
     totalViolations,
     byTag: parsed.byTag,
     byRule: parsed.byRule,
     incomplete: parsed.incomplete?.length ?? 0,
-    status: a11yBlocking && totalViolations > 0 ? "FAIL" : "PASS",
+    status: !parsed.found ? "NOT_RUN" : a11yBlocking && totalViolations > 0 ? "FAIL" : "PASS",
   };
 
   return intelligenceResult(
