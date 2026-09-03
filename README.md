@@ -13,6 +13,7 @@ The Testador sits between `/orquestrador` (builds) and `/executor` (fixes), vali
 - drives critical flows in a real browser via Playwright MCP;
 - generates deterministic Playwright specs + `@axe-core/playwright` for regression and real a11y scanning;
 - persists per-flow Axe/Playwright evidence; accessibility is informative by default and becomes blocking with `a11yBlocking=true`;
+- treats missing or invalid browser evidence as blocking (fail-closed) and updates the deterministic/a11y gates from produced artifacts;
 - validates UI/UX against OpenSpec `#### Scenario:` blocks and Open Design tokens;
 - triages findings by an explicit blocking rule: **explicit traceable requirement violated → blocking; undeclared best practice → informative**;
 - publishes a `handoff.json` pointing at `/executor` so the Executor can consume the test report as a pre-defined plan.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * CLI de triagem de achados.
- * triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-open-design bool]
+ * triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-frontend bool] [--has-open-design bool]
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -28,25 +28,34 @@ function main(argv) {
   if (args._[0] === "help" || args.help) {
     return {
       name: "triage-findings",
-      commands: { triage: "triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-open-design bool]" },
+      commands: { triage: "triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-frontend bool] [--has-open-design bool]" },
     };
   }
   const dir = required(args, "dir");
   const artefatosDir = resolve(dir);
   const a11yBlocking = boolArg(args["a11y-blocking"], false);
+  const hasFrontend = boolArg(args["has-frontend"], true);
   const hasOpenDesign = boolArg(args["has-open-design"], false);
 
   // Ler achados brutos de varios relatorios
   const rawFindings = [];
 
+  const addEvidenceFinding = (category, title, path) => rawFindings.push({
+    category, severity: "critical", title, evidence: { path },
+  });
+
   const playwrightResultsPath = join(artefatosDir, "run", "playwright-report", "findings.json");
+  const playwrightReportPath = join(artefatosDir, "run", "playwright-report", "results.json");
+  if (!existsSync(playwrightReportPath)) addEvidenceFinding("PLAYWRIGHT_RESULTS_MISSING", "Playwright report was not produced", playwrightReportPath);
   if (existsSync(playwrightResultsPath)) {
-    try { rawFindings.push(...JSON.parse(readFileSync(playwrightResultsPath, "utf8"))); } catch { /* opcional */ }
+    try { rawFindings.push(...JSON.parse(readFileSync(playwrightResultsPath, "utf8"))); } catch { addEvidenceFinding("PLAYWRIGHT_RESULTS_INVALID", "Playwright findings report is invalid", playwrightResultsPath); }
   }
 
   const axeResultsPath = join(artefatosDir, "run", "axe-findings.json");
+  const axeRawPath = join(artefatosDir, "run", "axe-results.json");
+  if (hasFrontend && !existsSync(axeRawPath)) addEvidenceFinding("A11Y_SCAN_NOT_RUN", "Accessibility scan was not executed", axeRawPath);
   if (existsSync(axeResultsPath)) {
-    try { rawFindings.push(...JSON.parse(readFileSync(axeResultsPath, "utf8"))); } catch { /* opcional */ }
+    try { rawFindings.push(...JSON.parse(readFileSync(axeResultsPath, "utf8"))); } catch { addEvidenceFinding("A11Y_RESULTS_INVALID", "Accessibility findings report is invalid", axeResultsPath); }
   }
 
   const uiuxResultsPath = join(artefatosDir, "review", "uiux-findings.json");

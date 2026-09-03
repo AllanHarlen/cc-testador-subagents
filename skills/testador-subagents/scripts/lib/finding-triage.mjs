@@ -39,6 +39,10 @@ const ALWAYS_BLOCKING = new Set([
   "REQUIREMENT_NOT_MET",
   "API_CONTRACT_MISMATCH",
   "PLAYWRIGHT_TEST_FAILED",
+  "PLAYWRIGHT_RESULTS_MISSING",
+  "PLAYWRIGHT_RESULTS_INVALID",
+  "A11Y_SCAN_NOT_RUN",
+  "A11Y_RESULTS_INVALID",
 ]);
 
 // Categorias always-blocking apenas quando ha um contrato de Open Design

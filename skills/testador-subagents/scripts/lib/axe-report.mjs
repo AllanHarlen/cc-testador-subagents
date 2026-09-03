@@ -31,7 +31,10 @@ const SEVERITY_ORDER = ["critical", "serious", "moderate", "minor"];
 
 function parseAxeResult(raw) {
   const records = Array.isArray(raw) ? raw : [raw];
-  const violations = records.flatMap((record) => (record?.violations ?? []).map((violation) => ({ ...violation, testTitle: record?.testTitle ?? null })));
+  if (records.length === 0 || records.some((record) => !record || typeof record !== "object" || !Array.isArray(record.violations) || !Array.isArray(record.incomplete))) {
+    throw new AxeReportError("AXE_REPORT_INVALID_SHAPE", "Axe report must contain violations and incomplete arrays");
+  }
+  const violations = records.flatMap((record) => (record?.violations ?? []).map((violation) => ({ ...violation, testTitle: record?.testTitle ?? null, url: record?.url ?? null })));
   const incomplete = records.flatMap((record) => record?.incomplete ?? []);
   const counts = { critical: 0, serious: 0, moderate: 0, minor: 0 };
   const byTag = {};
@@ -55,6 +58,7 @@ function parseAxeResult(raw) {
       flatViolations.push({
         rule: violation.id,
         testTitle: violation.testTitle ?? null,
+        url: violation.url ?? null,
         impact,
         description: violation.description,
         tags: violation.tags ?? [],

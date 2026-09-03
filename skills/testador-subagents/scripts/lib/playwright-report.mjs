@@ -24,22 +24,41 @@ function parsePlaywrightJson(path) {
 
   function walk(suite) {
     for (const test of suite.specs ?? suite.tests ?? []) {
-      total += 1;
       const results = test.tests ?? [test];
       for (const result of results) {
-        const status = result.status ?? result.outcome ?? "unknown";
-        if (["passed", "expected"].includes(status)) passed += 1;
-        else if (["failed", "unexpected", "flaky"].includes(status)) {
-          failed += 1;
-          failedTests.push({ title: test.title ?? result.title, error: result.error?.message ?? null });
-        } else { skipped += 1; }
+        const attempts = result.results?.length ? result.results : [result];
+        for (const attempt of attempts) {
+          total += 1;
+          const status = attempt.status ?? result.status ?? result.outcome ?? "unknown";
+          if (["passed", "expected"].includes(status)) passed += 1;
+          else if (["failed", "unexpected", "flaky", "timedOut"].includes(status)) {
+            failed += 1;
+            const errors = [
+              ...(attempt.errors ?? []),
+              ...(attempt.error ? [attempt.error] : []),
+              ...(result.errors ?? []),
+              ...(result.error ? [result.error] : []),
+            ].filter(Boolean);
+            failedTests.push({
+              title: test.title ?? result.title,
+              testTitle: test.title ?? result.title,
+              projectName: result.projectName ?? attempt.projectName ?? null,
+              status,
+              error: errors[0]?.message ?? null,
+              errors,
+              attachments: attempt.attachments ?? [],
+            });
+          } else {
+            skipped += 1;
+          }
+        }
       }
     }
     for (const child of suite.suites ?? []) walk(child);
   }
 
   for (const suite of suites) walk(suite);
-  return { total, passed, failed, skipped, failedTests, status: failed === 0 ? "PASS" : "FAIL" };
+  return { summary: { total, passed, failed, skipped, status: failed === 0 ? "PASS" : "FAIL" }, failedTests };
 }
 
 export function parsePlaywrightReport(artefatosDir) {

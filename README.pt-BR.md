@@ -27,7 +27,7 @@ O Testador é o terceiro estágio na cadeia de handoff. Em modo conjunto, seu `h
 
 ## As três skills obrigatórias
 
-Diferente do Executor (cuja stack de agentes é configurável), a stack do Testador é **Claude Code puro** — sem Codex, sem AGY. As três skills são obrigatórias, não referência opcional. O preflight bloqueia se qualquer uma estiver ausente.
+Diferente do Executor (cuja stack de agentes é configurável), a stack do Testador é **Claude Code puro** — sem Codex, sem AGY. As três skills são obrigatórias, não referência opcional. O preflight bloqueia se qualquer uma estiver ausente. Evidências de navegador ausentes ou inválidas são bloqueantes.
 
 | Skill | Fases | Gates |
 |---|---|---|

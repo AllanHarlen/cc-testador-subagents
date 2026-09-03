@@ -142,8 +142,8 @@ function generateFlowSpec(flow, baseUrl, coverageEntries, fixtureImportUrl) {
 
   const steps = (flow.steps ?? []).map((step) => {
     if (step.action === "navigate") {
-      const url = `${baseUrl}${step.path ?? ""}`;
-      return `  await page.goto(${jsStringLiteral(url)});
+      const path = step.path ?? "";
+      return `  await page.goto(new URL(${jsStringLiteral(path)}, process.env.TESTADOR_BASE_URL ?? ${jsStringLiteral(baseUrl)}).href);
   await page.waitForLoadState("networkidle");`;
     }
     if (step.action === "click") {

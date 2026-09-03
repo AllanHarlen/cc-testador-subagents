@@ -48,17 +48,20 @@ export async function recordAssertion(domAssertions, title, assertionFn) {
 export async function runAxeScan(page, testTitle) {
   const tags = (process.env.TESTADOR_WCAG_TAGS ?? "wcag2a,wcag2aa,wcag21a,wcag21aa")
     .split(",").map((tag) => tag.trim()).filter(Boolean);
-  const result = await new AxeBuilder({ page }).withTags(tags).analyze();
   const artifactsDir = process.env.TESTADOR_ARTIFACTS_DIR;
-  if (!artifactsDir) return result;
-  const path = join(artifactsDir, "run", "axe-results.json");
-  mkdirSync(dirname(path), { recursive: true });
+  const path = artifactsDir ? join(artifactsDir, "run", "axe-results.json") : null;
   let records = [];
-  if (existsSync(path)) {
+  if (path && existsSync(path)) {
     try { records = JSON.parse(readFileSync(path, "utf8")); } catch { records = []; }
     if (!Array.isArray(records)) records = [records];
+    const existing = records.find((record) => record?.url && record.url === page.url());
+    if (existing) return existing;
   }
-  records.push({ testTitle, ...result });
+  const result = await new AxeBuilder({ page }).withTags(tags).analyze();
+  if (!path) return result;
+  mkdirSync(dirname(path), { recursive: true });
+  const record = { ...result, testTitle, url: result.url ?? page.url() };
+  if (!records.some((existing) => existing?.url && existing.url === record.url)) records.push(record);
   const temporary = `${path}.${process.pid}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(records, null, 2)}\n`, "utf8");
   renameSync(temporary, path);

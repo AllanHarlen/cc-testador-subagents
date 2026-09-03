@@ -81,6 +81,18 @@ export function resolveInside(root, value) {
   return { absolute, relative: toPosixPath(rel || ".") };
 }
 
+/** Valida a raiz física de artefatos antes de qualquer escrita. */
+export function assertArtifactDir(projectRoot, artifactDir) {
+  const expectedRoot = resolve(projectRoot, ".testador");
+  const physicalRoot = realpathSync(expectedRoot);
+  const physicalArtifact = realpathSync(resolve(artifactDir));
+  const rel = relative(physicalRoot, physicalArtifact);
+  if (rel === ".." || rel.startsWith(`..${sep}`)) {
+    throw new IntelligenceError("ARTIFACT_PATH_OUTSIDE_TESTADOR", `Artifact directory escapes ${expectedRoot}`);
+  }
+  return physicalArtifact;
+}
+
 export function walkFiles(root, options = {}) {
   const absoluteRoot = resolve(root);
   const maxFiles = Number(options.maxFiles ?? 20_000);

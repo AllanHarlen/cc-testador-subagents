@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 
 import { executeJsonCli, boolArg, parseArgs, required } from "./lib/cli-utils.mjs";
 import { readProjectConfig } from "./lib/project-config.mjs";
+import { assertArtifactDir } from "./lib/intelligence.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -67,6 +68,9 @@ function main(argv) {
   const dir = required(args, "dir");
   const artefatosDir = resolve(dir);
   const projectRoot = args["project-root"] === true ? process.cwd() : resolve(args["project-root"] ?? process.cwd());
+  try { assertArtifactDir(projectRoot, artefatosDir); } catch (error) {
+    throw new RunSpecsError(error.code ?? "ARTIFACT_PATH_INVALID", error.message);
+  }
   const configured = readProjectConfig(projectRoot).config;
   const baseUrl = args["base-url"] === true ? configured.baseUrl : (args["base-url"] ?? configured.baseUrl);
   const viewports = args.viewports === true ? configured.viewports : (args.viewports ?? configured.viewports);

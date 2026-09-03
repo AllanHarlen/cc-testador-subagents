@@ -116,3 +116,10 @@ test("parseAxeReport byRule counts correctly even when a violation has no nodes 
   assert.equal(result.byRule["color-contrast"], 3);
   assert.ok(Number.isFinite(result.byRule["color-contrast"]), "byRule count must never be NaN");
 });
+
+test("parseAxeReport rejects an object that is not an Axe result", () => {
+  const root = fixture();
+  mkdirSync(join(root, "run"), { recursive: true });
+  writeFileSync(join(root, "run", "axe-results.json"), JSON.stringify({}), "utf8");
+  assert.throws(() => parseAxeReport(join(root, "run", "axe-results.json")), (error) => error.code === "AXE_REPORT_INVALID_SHAPE");
+});
