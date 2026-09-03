@@ -38,6 +38,7 @@ const ALWAYS_BLOCKING = new Set([
   "OPENSPEC_SCENARIO_FAILED",
   "REQUIREMENT_NOT_MET",
   "API_CONTRACT_MISMATCH",
+  "PLAYWRIGHT_TEST_FAILED",
 ]);
 
 // Categorias always-blocking apenas quando ha um contrato de Open Design
@@ -266,10 +267,16 @@ export function triageFindings(options = {}) {
     hasOpenDesign = false,
     apiCalls = [],
     domAssertions = [],
+    flowRecords = [],
   } = options;
 
   // Correlacionador 2xx-sem-efeito
-  const correlatedFindings = correlate2xxWithoutEffect(apiCalls, domAssertions);
+  const correlatedFindings = flowRecords.length > 0
+    ? flowRecords.flatMap((record) => correlate2xxWithoutEffect(record.apiCalls, record.domAssertions).map((finding) => ({
+      ...finding,
+      evidence: { ...finding.evidence, testTitle: record.testTitle ?? null },
+    })))
+    : correlate2xxWithoutEffect(apiCalls, domAssertions);
 
   const all = [...rawFindings, ...correlatedFindings].map((finding) =>
     classifyFinding(finding, requirements, a11yBlocking, { hasOpenDesign }),

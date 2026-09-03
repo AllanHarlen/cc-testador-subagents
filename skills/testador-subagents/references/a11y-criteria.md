@@ -29,7 +29,7 @@ Entram no laudo classificadas por severidade.
 ## CLI
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} --grep "a11y"
+node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} --project-root {project_root} --grep "a11y"
 node "${CLAUDE_SKILL_DIR}/scripts/collect-a11y-results.mjs" --dir {artefatos_dir} [--a11y-blocking bool]
 ```
 

@@ -402,10 +402,11 @@ function checkProjectConfig() {
 }
 
 const CHECK_ONLY = process.argv.includes("--check-only") || process.argv.includes("--dry-run");
+const FIX_PERMISSIONS = process.argv.includes("--fix-permissions");
 
 const initialBash = checkTestadorBashPermission();
-const autoRemediation = CHECK_ONLY
-  ? { attempted: false, changed: false, target: PROJECT_SETTINGS_FILE, action: "skipped-check-only", revalidated: false, ok: initialBash.ok }
+const autoRemediation = CHECK_ONLY || !FIX_PERMISSIONS
+  ? { attempted: false, changed: false, target: PROJECT_SETTINGS_FILE, action: CHECK_ONLY ? "skipped-check-only" : "skipped-without-fix-permissions", revalidated: false, ok: initialBash.ok }
   : autoRemediateTestadorBashPermission(initialBash);
 const finalBash = CHECK_ONLY ? initialBash : checkTestadorBashPermission();
 

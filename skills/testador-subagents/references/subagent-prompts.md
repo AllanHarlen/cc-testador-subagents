@@ -59,7 +59,7 @@ Voce e o Executor Deterministico. Sua responsabilidade e rodar os specs gerados
 e o scan axe, e reportar os resultados estruturados.
 
 Instrucoes:
-1. Executar specs: `node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} [--base-url <url>]`.
+1. Executar specs: `node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} --project-root {project_root} [--base-url <url>] [--viewports <WxH,...>] [--wcag-tags <tags>] [--a11y-blocking <bool>]`.
 2. Executar axe nos specs de a11y se presentes.
 3. Coletar resultados: `node "${CLAUDE_SKILL_DIR}/scripts/collect-test-results.mjs" --dir {artefatos_dir}`.
 4. Coletar a11y: `node "${CLAUDE_SKILL_DIR}/scripts/collect-a11y-results.mjs" --dir {artefatos_dir}`.

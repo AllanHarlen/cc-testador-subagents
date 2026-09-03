@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * CLI de execucao deterministica dos specs gerados.
- * run-specs.mjs --dir <artefatos_dir> [--base-url <url>] [--grep <pattern>]
+ * run-specs.mjs --dir <artefatos_dir> [--project-root <root>] [--base-url <url>] [--viewports <WxH,...>] [--wcag-tags <tags>] [--a11y-blocking <bool>] [--grep <pattern>]
  *
  * Roda `@playwright/test` (via node_modules/@playwright/test/cli.js, sem
  * shell e sem depender de `npx` estar no PATH) contra
@@ -20,6 +20,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { executeJsonCli, boolArg, parseArgs, required } from "./lib/cli-utils.mjs";
+import { readProjectConfig } from "./lib/project-config.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -60,12 +61,17 @@ function main(argv) {
   if (args._[0] === "help" || args.help) {
     return {
       name: "run-specs",
-      commands: { run: "run-specs.mjs --dir <artefatos_dir> [--base-url <url>] [--grep <pattern>]" },
+      commands: { run: "run-specs.mjs --dir <artefatos_dir> [--project-root <root>] [--base-url <url>] [--viewports <WxH,...>] [--wcag-tags <tags>] [--a11y-blocking <bool>] [--grep <pattern>]" },
     };
   }
   const dir = required(args, "dir");
   const artefatosDir = resolve(dir);
-  const baseUrl = args["base-url"] === true ? undefined : (args["base-url"] ?? undefined);
+  const projectRoot = args["project-root"] === true ? process.cwd() : resolve(args["project-root"] ?? process.cwd());
+  const configured = readProjectConfig(projectRoot).config;
+  const baseUrl = args["base-url"] === true ? configured.baseUrl : (args["base-url"] ?? configured.baseUrl);
+  const viewports = args.viewports === true ? configured.viewports : (args.viewports ?? configured.viewports);
+  const wcagTags = args["wcag-tags"] === true ? configured.wcagTags : (args["wcag-tags"] ?? configured.wcagTags);
+  const a11yBlocking = args["a11y-blocking"] === true ? configured.a11yBlocking : boolArg(args["a11y-blocking"], configured.a11yBlocking);
   const grep = args.grep === true ? undefined : (args.grep ?? undefined);
   const updateSnapshots = boolArg(args["update-snapshots"], false);
 
@@ -93,6 +99,9 @@ function main(argv) {
     ...process.env,
     TESTADOR_ARTIFACTS_DIR: artefatosDir,
     ...(baseUrl ? { TESTADOR_BASE_URL: baseUrl } : {}),
+    TESTADOR_VIEWPORTS: viewports,
+    TESTADOR_WCAG_TAGS: wcagTags,
+    TESTADOR_A11Y_BLOCKING: String(a11yBlocking),
   };
 
   const result = spawnSync(process.execPath, [cliPath, ...cliArgs], {

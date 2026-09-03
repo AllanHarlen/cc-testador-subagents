@@ -57,6 +57,13 @@ test("report shape is schemaVersion 1, flat, with singular category labels", () 
   }
 });
 
+test("preflight is non-mutating unless --fix-permissions is explicit", () => {
+  const root = temporaryProject();
+  const report = runPreflight(root);
+  assert.equal(report.autoRemediation.action, "skipped-without-fix-permissions");
+  assert.equal(report.autoRemediation.changed, false);
+});
+
 test("the 3 mandatory skills are all marked required: true", () => {
   const root = temporaryProject();
   const report = runPreflight(root);

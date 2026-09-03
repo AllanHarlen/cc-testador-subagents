@@ -12,6 +12,7 @@ The Testador sits between `/orquestrador` (builds) and `/executor` (fixes), vali
 - never writes inside `openspec/`, never invokes `/opsx:*`;
 - drives critical flows in a real browser via Playwright MCP;
 - generates deterministic Playwright specs + `@axe-core/playwright` for regression and real a11y scanning;
+- persists per-flow Axe/Playwright evidence; accessibility is informative by default and becomes blocking with `a11yBlocking=true`;
 - validates UI/UX against OpenSpec `#### Scenario:` blocks and Open Design tokens;
 - triages findings by an explicit blocking rule: **explicit traceable requirement violated → blocking; undeclared best practice → informative**;
 - publishes a `handoff.json` pointing at `/executor` so the Executor can consume the test report as a pre-defined plan.
@@ -168,7 +169,7 @@ Mandatory:
 | Skill `webapp-testing` | `npx skills add https://github.com/anthropics/skills --skill webapp-testing` |
 | Skill `frontend-design` | `npx skills add https://github.com/anthropics/skills --skill frontend-design` |
 | Skill `ui-ux-pro-max` | `npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max` |
-| `Bash(node:*)` and `Bash(npx:*)` | `.claude/settings.json` — auto-remediated by preflight |
+| `Bash(node:*)` and `Bash(npx:*)` | `.claude/settings.json` — remediation only with `preflight --fix-permissions` |
 
 Optional:
 
@@ -216,6 +217,10 @@ Validate:
 ```text
 /testador preflight
 ```
+
+Preflight is read-only by default. If it reports missing permissions, obtain explicit confirmation and rerun `node scripts/preflight.mjs --fix-permissions`.
+
+For CI, install with `npm ci`, run `npm test`, and run `npm run test:integration` for the local Chromium integration suite. `viewports` and `wcagTags` in `.testador/project-config.md` are forwarded to the runner; only configured viewports are executed.
 
 ## Usage
 

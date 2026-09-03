@@ -80,6 +80,16 @@ test("correlate2xxWithoutEffect produces no finding when no API calls", () => {
   assert.equal(findings.length, 0);
 });
 
+test("flowRecords correlation does not mix API calls and assertions from different flows", () => {
+  const result = triageFindings({
+    flowRecords: [
+      { testTitle: "list", apiCalls: [{ method: "GET", url: "/api/list", status: 200, ok: true }], domAssertions: [{ title: "list renders", status: "passed" }] },
+      { testTitle: "delete", apiCalls: [], domAssertions: [{ title: "delete effect", status: "failed" }] },
+    ],
+  });
+  assert.equal(result.all.some((finding) => finding.category === "UI_DATA_MISMATCH"), false);
+});
+
 // --- triageFindings (run status) ---
 
 test("runStatus is REPROVADO when any finding is blocking", () => {

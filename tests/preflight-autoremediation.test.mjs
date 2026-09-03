@@ -27,7 +27,7 @@ function fakeHomeEnv(root) {
 }
 
 function runPreflight(root, extraEnv = {}) {
-  const run = spawnSync(process.execPath, [PREFLIGHT_SCRIPT], {
+  const run = spawnSync(process.execPath, [PREFLIGHT_SCRIPT, "--fix-permissions"], {
     cwd: root,
     encoding: "utf8",
     env: { ...process.env, ...fakeHomeEnv(root), ...extraEnv },

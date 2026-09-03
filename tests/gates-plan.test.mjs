@@ -201,12 +201,13 @@ test("COMPLETION_GATE_BY_PLAN_GATE only maps to the 4 waivable completion gate i
 });
 
 test("script-kind gate commands only use flags the target canonical CLI actually accepts", () => {
-  // generate-specs.mjs and run-specs.mjs accept --dir/--base-url (not
+  // generate-specs.mjs and run-specs.mjs accept --dir/--base-url (run-specs
+  // also accepts --project-root) (not
   // --flow-map/--coverage-matrix, which generate-specs.mjs never parses).
   const { gates } = planGates({ scope: "FULL", hasFrontend: true, hasOpenSpec: true, hasOpenDesign: true, jointMode: true });
   const bySpec = Object.fromEntries(gates.filter((g) => g.kind === "script").map((g) => [g.id, g.command]));
   assert.deepEqual(bySpec["generate-specs"].slice(2), ["--dir", "{artefatos_dir}", "--base-url", "{base_url}"]);
-  assert.deepEqual(bySpec["run-specs"].slice(2), ["--dir", "{artefatos_dir}", "--base-url", "{base_url}"]);
+  assert.deepEqual(bySpec["run-specs"].slice(2), ["--dir", "{artefatos_dir}", "--project-root", "{project_root}", "--base-url", "{base_url}"]);
   assert.deepEqual(bySpec["collect-results"].slice(2), ["--dir", "{artefatos_dir}"]);
   assert.deepEqual(
     bySpec["coverage-check"].slice(2),

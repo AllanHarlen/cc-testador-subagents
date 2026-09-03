@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   renameSync,
   statSync,
@@ -65,6 +66,17 @@ export function resolveInside(root, value) {
       "PATH_OUTSIDE_PROJECT",
       `Path resolves outside the project: ${value}`,
     );
+  }
+  try {
+    const physicalRoot = realpathSync(absoluteRoot);
+    const physical = realpathSync(absolute);
+    const physicalRel = relative(physicalRoot, physical);
+    if (physicalRel === ".." || physicalRel.startsWith(`..${sep}`)) {
+      throw new IntelligenceError("PATH_SYMLINK_OUTSIDE_PROJECT", `Path resolves outside the project through a symlink: ${value}`);
+    }
+  } catch (error) {
+    if (error instanceof IntelligenceError) throw error;
+    // The caller may be resolving a path that will be created later.
   }
   return { absolute, relative: toPosixPath(rel || ".") };
 }

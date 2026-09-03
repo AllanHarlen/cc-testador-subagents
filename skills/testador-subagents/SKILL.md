@@ -70,8 +70,9 @@ Detalhe de cada fase em `references/workflow.md`. Detalhe de cada skill por fase
 ## Fase 0 — Preflight
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs"
+node "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" --check-only
 ```
+O preflight nao altera arquivos por padrao. A remediacao exige confirmacao explicita e `preflight.mjs --fix-permissions`.
 
 Ver `references/preflight-check.md` para a tabela completa de itens obrigatorios/opcionais e suas
 remediacoes. As 3 skills, o Playwright MCP e os browsers sao obrigatorios — sem caminho de

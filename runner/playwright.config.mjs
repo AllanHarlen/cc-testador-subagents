@@ -20,6 +20,14 @@ if (!artifactsDir) {
 const specsDir = join(artifactsDir, "run", "specs");
 const reportDir = join(artifactsDir, "run", "playwright-report");
 const baseURL = process.env.TESTADOR_BASE_URL ?? "http://localhost:3000";
+const configuredViewports = (process.env.TESTADOR_VIEWPORTS ?? "390x844,1440x900")
+  .split(",").map((entry) => entry.trim().match(/^(\d+)x(\d+)$/i)).filter(Boolean)
+  .map(([, width, height]) => ({ width: Number(width), height: Number(height) }));
+const viewports = configuredViewports.length > 0 ? configuredViewports : [{ width: 390, height: 844 }, { width: 1440, height: 900 }];
+const projects = viewports.map((viewport, index) => ({
+  name: `chromium-${viewport.width < 700 ? "mobile" : "desktop"}-${index + 1}`,
+  use: { ...(viewport.width < 700 ? devices["iPhone 12"] : {}), browserName: "chromium", viewport },
+}));
 
 export default defineConfig({
   testDir: specsDir,
@@ -35,27 +43,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "off",
   },
-  projects: [
-    {
-      name: "chromium-mobile",
-      use: {
-        ...devices["iPhone 12"],
-        // devices["iPhone 12"] traz defaultBrowserType: "webkit" -- forcar
-        // browserName aqui garante que o projeto roda em Chromium (o unico
-        // browser que preflight/README instalam), mantendo viewport/UA/
-        // isMobile/hasTouch do descritor iPhone 12.
-        browserName: "chromium",
-        channel: "chromium",
-      },
-    },
-    {
-      name: "chromium-desktop",
-      use: {
-        viewport: { width: 1440, height: 900 },
-        channel: "chromium",
-      },
-    },
-  ],
+  projects,
   // Sem retries em batch de validacao -- achado e achado.
   retries: 0,
   timeout: 30_000,

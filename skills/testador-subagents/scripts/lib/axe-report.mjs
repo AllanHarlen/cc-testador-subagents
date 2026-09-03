@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { intelligenceResult } from "./intelligence.mjs";
 
@@ -30,8 +30,9 @@ export class AxeReportError extends Error {
 const SEVERITY_ORDER = ["critical", "serious", "moderate", "minor"];
 
 function parseAxeResult(raw) {
-  const violations = raw.violations ?? [];
-  const incomplete = raw.incomplete ?? [];
+  const records = Array.isArray(raw) ? raw : [raw];
+  const violations = records.flatMap((record) => (record?.violations ?? []).map((violation) => ({ ...violation, testTitle: record?.testTitle ?? null })));
+  const incomplete = records.flatMap((record) => record?.incomplete ?? []);
   const counts = { critical: 0, serious: 0, moderate: 0, minor: 0 };
   const byTag = {};
   const byRule = {};
@@ -53,6 +54,7 @@ function parseAxeResult(raw) {
     for (const node of violation.nodes ?? []) {
       flatViolations.push({
         rule: violation.id,
+        testTitle: violation.testTitle ?? null,
         impact,
         description: violation.description,
         tags: violation.tags ?? [],
@@ -97,6 +99,20 @@ export function collectAxeResults(artefatosDir, options = {}) {
     incomplete: parsed.incomplete?.length ?? 0,
     status: !parsed.found ? "NOT_RUN" : a11yBlocking && totalViolations > 0 ? "FAIL" : "PASS",
   };
+
+  if (parsed.found) {
+    const findingsPath = join(resolve(artefatosDir), "run", "axe-findings.json");
+    mkdirSync(resolve(artefatosDir, "run"), { recursive: true });
+    const findings = parsed.violations.map((violation) => ({
+      category: "A11Y_VIOLATION",
+      severity: violation.impact,
+      title: violation.description ?? `Axe violation: ${violation.rule}`,
+      evidence: violation,
+    }));
+    const temporary = `${findingsPath}.${process.pid}.tmp`;
+    writeFileSync(temporary, `${JSON.stringify(findings, null, 2)}\n`, "utf8");
+    renameSync(temporary, findingsPath);
+  }
 
   return intelligenceResult(
     "axe-results",

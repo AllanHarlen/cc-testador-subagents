@@ -204,7 +204,7 @@ export function planGates(context = {}) {
     "run-specs",
     7,
     "run-specs.mjs",
-    ["--dir", "{artefatos_dir}", "--base-url", "{base_url}"],
+    ["--dir", "{artefatos_dir}", "--project-root", "{project_root}", "--base-url", "{base_url}"],
     "Run generated specs with @playwright/test and collect JSON/JUnit reports.",
   ));
 

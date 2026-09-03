@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Runner agora executa Axe por fluxo, persiste `axe-results.json`/achados normalizados e encaminha falhas Playwright como findings bloqueantes.
+- `project-config` controla `baseUrl`, `viewports`, `wcagTags` e `a11yBlocking`; preflight só altera permissões com `--fix-permissions`.
+- Escrita de artefatos valida descendência física em `.testador`; adicionada suíte `npm run test:integration` com Chromium.
+
 Todas as mudancas notaveis deste plugin sao documentadas aqui.
 
 ## [1.1.1] - 2026-09-03 - Sincronizacao pos-cloud: gate de a11y honesto, ingest sem off-by-one, preflight nao mutante

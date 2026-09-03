@@ -7,8 +7,9 @@ Detalhamento das 12 fases (0 a 11). Ver SKILL.md para a visao geral e tabela de 
 Rodar antes de qualquer coisa:
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs"
+node "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" --check-only
 ```
+Se permissoes precisarem ser corrigidas, confirme com o usuario e execute `preflight.mjs --fix-permissions`; sem essa flag a etapa permanece somente leitura.
 
 As 3 skills (webapp-testing, frontend-design, ui-ux-pro-max), o Playwright MCP e o
 Chromium sao **obrigatorios**. Falha = bloquear, mostrar remediacao, perguntar via
@@ -100,7 +101,7 @@ Credenciais: nunca como valor literal, sempre `process.env.X`.
 ## Fase 7 — Execucao deterministica
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} [--base-url <url>]
+node "${CLAUDE_SKILL_DIR}/scripts/run-specs.mjs" --dir {artefatos_dir} --project-root {project_root} [--base-url <url>] [--viewports <WxH,...>] [--wcag-tags <tags>] [--a11y-blocking <bool>]
 ```
 
 `run-specs.mjs` e o wrapper canonico do `@playwright/test` do proprio plugin (resolve

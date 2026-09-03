@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { intelligenceResult } from "./intelligence.mjs";
 
@@ -73,6 +73,20 @@ export function collectPlaywrightResults(artefatosDir, options = {}) {
     durationSeconds: null,
     status: parsed.summary?.status ?? "UNKNOWN",
   };
+  if (parsed.found) {
+    const reportDir = join(resolve(artefatosDir), "run", "playwright-report");
+    const findingsPath = join(reportDir, "findings.json");
+    mkdirSync(reportDir, { recursive: true });
+    const findings = (parsed.failedTests ?? []).map((test) => ({
+      category: "PLAYWRIGHT_TEST_FAILED",
+      severity: "critical",
+      title: `Playwright test failed: ${test.title ?? "unknown"}`,
+      evidence: test,
+    }));
+    const temporary = `${findingsPath}.${process.pid}.tmp`;
+    writeFileSync(temporary, `${JSON.stringify(findings, null, 2)}\n`, "utf8");
+    renameSync(temporary, findingsPath);
+  }
   return intelligenceResult(
     "playwright-results",
     summary,

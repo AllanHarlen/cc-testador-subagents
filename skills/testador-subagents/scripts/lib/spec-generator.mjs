@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, realpathSync } from "node:fs";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
@@ -92,12 +92,25 @@ function toLineComment(text) {
  */
 function assertInsideTestadorRoot(artefatosDir) {
   const segments = artefatosDir.split(sep).filter(Boolean);
-  if (!segments.includes(".testador")) {
+  const marker = segments.lastIndexOf(".testador");
+  if (marker < 1) {
     throw new SpecGeneratorError(
       "ARTEFATOS_DIR_OUTSIDE_TESTADOR",
       `artefatosDir must be inside a .testador/ directory tree (never the target repo root): ${artefatosDir}`,
       { artefatosDir },
     );
+  }
+  let physical;
+  let physicalRoot;
+  try {
+    physical = realpathSync(artefatosDir);
+    physicalRoot = realpathSync(join(sep === "\\" ? `${segments[0]}\\` : sep, ...segments.slice(1, marker + 1)));
+  } catch (error) {
+    throw new SpecGeneratorError("ARTEFATOS_DIR_UNRESOLVABLE", `artefatosDir must already exist and resolve physically: ${artefatosDir}`, { cause: error.code });
+  }
+  const rel = relative(physicalRoot, physical);
+  if (rel === ".." || rel.startsWith(`..${sep}`)) {
+    throw new SpecGeneratorError("ARTEFATOS_DIR_SYMLINK_ESCAPE", `artefatosDir resolves outside its .testador tree: ${artefatosDir}`, { artefatosDir });
   }
 }
 
@@ -160,11 +173,12 @@ function generateFlowSpec(flow, baseUrl, coverageEntries, fixtureImportUrl) {
     return `  ${toLineComment(`${step.action}: ${step.selector ?? step.description ?? ""}`)}`;
   });
 
-  return `import { test, expect, recordAssertion } from ${jsStringLiteral(fixtureImportUrl)};
+  return `import { test, expect, recordAssertion, runAxeScan } from ${jsStringLiteral(fixtureImportUrl)};
 ${coverageComment}
 
 test(${jsStringLiteral(flow.name)}, async ({ page, consoleErrors, apiCalls, domAssertions }) => {
 ${steps.join("\n")}
+  await runAxeScan(page, ${jsStringLiteral(flow.name)});
 });
 `;
 }

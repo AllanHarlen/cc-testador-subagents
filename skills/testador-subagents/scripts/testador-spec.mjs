@@ -44,6 +44,7 @@ export const FINDING_CATEGORIES = Object.freeze([
   "QUALITY_FLOOR",
   "AI_DESIGN_CLICHE",
   "UIUX_CRITIQUE",
+  "PLAYWRIGHT_TEST_FAILED",
 ]);
 
 export const SEVERITIES = Object.freeze(["critical", "serious", "moderate", "minor", "info"]);

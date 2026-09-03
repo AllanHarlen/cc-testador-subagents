@@ -153,7 +153,7 @@ Obrigatórios:
 | Skill `webapp-testing` | `npx skills add https://github.com/anthropics/skills --skill webapp-testing` |
 | Skill `frontend-design` | `npx skills add https://github.com/anthropics/skills --skill frontend-design` |
 | Skill `ui-ux-pro-max` | `npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max` |
-| `Bash(node:*)` e `Bash(npx:*)` | `.claude/settings.json` — auto-remediado pelo preflight |
+| `Bash(node:*)` e `Bash(npx:*)` | `.claude/settings.json` — remediação somente com `preflight --fix-permissions` |
 
 Opcionais:
 
@@ -199,6 +199,9 @@ Validar:
 ```text
 /testador preflight
 ```
+O preflight é somente leitura por padrão. Após confirmação explícita, use `node scripts/preflight.mjs --fix-permissions` para aplicar permissões.
+
+Para CI: `npm ci`, `npm test` e `npm run test:integration`. `viewports` e `wcagTags` da Project_Config chegam ao runner; somente os viewports configurados são executados.
 
 ## Uso
 

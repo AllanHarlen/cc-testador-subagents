@@ -74,10 +74,7 @@ function main(argv) {
   // sempre vazios e o correlacionador nunca produzia um achado real.
   const networkCallsPath = join(artefatosDir, "run", "network-calls.jsonl");
   const flowRecords = readNdjson(networkCallsPath);
-  const apiCalls = flowRecords.flatMap((r) => r.apiCalls ?? []);
-  const domAssertions = flowRecords.flatMap((r) => r.domAssertions ?? []);
-
-  return { result: triageFindings({ rawFindings, requirements, a11yBlocking, hasOpenDesign, apiCalls, domAssertions }) };
+  return { result: triageFindings({ rawFindings, requirements, a11yBlocking, hasOpenDesign, flowRecords }) };
 }
 
 executeJsonCli(main);

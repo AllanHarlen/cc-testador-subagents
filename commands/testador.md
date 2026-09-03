@@ -67,7 +67,7 @@ Este modo e **read-only**.
 Se `$ARGUMENTS` for exatamente `preflight`, rode apenas:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs" --check-only
 ```
 
 Mostre `status`, falhas obrigatorias (incluindo as 3 skills — `webapp-testing`, `frontend-design`,
@@ -102,6 +102,8 @@ Se o primeiro argumento for `project-config`, este ramo substitui a execucao da 
 
 5. Rode o preflight uma vez, sempre.
 
+O preflight é não mutante por padrão. Se houver falha de permissão, peça confirmação explícita e só então execute `node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs" --fix-permissions`.
+
 ## Modo resume
 
 Se o primeiro argumento for `resume`, este ramo substitui o inicio de uma execucao nova:
@@ -119,7 +121,7 @@ Git/arquivos/validacoes -> devolve `resumeFromPhase`. Nao trate `resume` como de
 1. Rode o preflight:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs"
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs" --check-only
    ```
 
    As 3 skills (`webapp-testing`, `frontend-design`, `ui-ux-pro-max`), o Playwright MCP e os
