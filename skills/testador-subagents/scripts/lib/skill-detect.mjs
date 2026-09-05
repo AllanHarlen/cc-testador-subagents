@@ -24,11 +24,14 @@ import { join } from "node:path";
 
 export const REQUIRED_SKILLS = Object.freeze(["webapp-testing", "frontend-design", "ui-ux-pro-max"]);
 
+// `frontend-design` and `ui-ux-pro-max` are shipped by cc-pensador (a
+// sibling plugin, declared as a real dependency in plugin.json — WF-005 /
+// DEC-007) — installing it satisfies both. `webapp-testing` is the only one
+// of the three that is genuinely third-party (anthropics/skills).
 export const SKILL_INSTALL_COMMANDS = Object.freeze({
   "webapp-testing": "npx skills add https://github.com/anthropics/skills --skill webapp-testing",
-  "frontend-design": "npx skills add https://github.com/anthropics/skills --skill frontend-design",
-  "ui-ux-pro-max":
-    "npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max",
+  "frontend-design": "Install the cc-pensador plugin (it ships this skill) — /plugin install cc-pensador@cc-pensador",
+  "ui-ux-pro-max": "Install the cc-pensador plugin (it ships this skill) — /plugin install cc-pensador@cc-pensador",
 });
 
 /** Which phase(s)/gate(s) each mandatory skill is wired to — surfaced in preflight remediation. */

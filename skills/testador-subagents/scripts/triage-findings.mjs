@@ -5,7 +5,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { triageFindings } from "./lib/finding-triage.mjs";
+import { mapVerdictToHandoffStatus, triageFindings } from "./lib/finding-triage.mjs";
 import { executeJsonCli, boolArg, parseArgs, required } from "./lib/cli-utils.mjs";
 
 /** Le um arquivo NDJSON (uma linha JSON por registro); linhas invalidas sao ignoradas. */
@@ -28,7 +28,10 @@ function main(argv) {
   if (args._[0] === "help" || args.help) {
     return {
       name: "triage-findings",
-      commands: { triage: "triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-frontend bool] [--has-open-design bool]" },
+      commands: {
+        triage: "triage-findings.mjs --dir <artefatos_dir> [--a11y-blocking bool] [--has-frontend bool] "
+          + "[--has-open-design bool] [--has-waived-gate bool]",
+      },
     };
   }
   const dir = required(args, "dir");
@@ -36,6 +39,11 @@ function main(argv) {
   const a11yBlocking = boolArg(args["a11y-blocking"], false);
   const hasFrontend = boolArg(args["has-frontend"], true);
   const hasOpenDesign = boolArg(args["has-open-design"], false);
+  // Was a required, waivable completion gate closed N/A instead of DONE (see
+  // testador-state.mjs's own RUN_GATES_WAIVED check)? Pass it so the
+  // computed handoffStatus reflects it: an APROVADO verdict on the findings
+  // that *did* run is not DONE when a required gate never ran at all.
+  const hasWaivedGate = boolArg(args["has-waived-gate"], false);
 
   // Ler achados brutos de varios relatorios
   const rawFindings = [];
@@ -83,7 +91,11 @@ function main(argv) {
   // sempre vazios e o correlacionador nunca produzia um achado real.
   const networkCallsPath = join(artefatosDir, "run", "network-calls.jsonl");
   const flowRecords = readNdjson(networkCallsPath);
-  return { result: triageFindings({ rawFindings, requirements, a11yBlocking, hasOpenDesign, flowRecords }) };
+  const result = triageFindings({ rawFindings, requirements, a11yBlocking, hasOpenDesign, flowRecords, hasWaivedGate });
+  // WF-002: compute the normative handoffStatus here instead of leaving the
+  // LLM to derive REPROVADO->BLOCKED / PARCIAL->PARTIAL / APROVADO(_COM_RESSALVAS)->DONE
+  // from prose. handoff.json's `status` field must be this value verbatim.
+  return { result: { ...result, handoffStatus: mapVerdictToHandoffStatus(result.runStatus) } };
 }
 
 executeJsonCli(main);

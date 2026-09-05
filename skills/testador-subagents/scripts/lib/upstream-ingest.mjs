@@ -85,14 +85,27 @@ function followUpstreamToPensador(startHandoff, projectRoot) {
   return current.stage === "pensador" ? current : null;
 }
 
-/** Descobre o slug do handoff do Orquestrador escaneando `.orchestration/`. */
+function orchestradorHandoffCandidates(projectRoot, slug) {
+  return [
+    join(projectRoot, ".orchestration", slug, "report", "handoff.json"),
+    join(projectRoot, ".orchestration", slug, "handoff.json"),
+  ];
+}
+
+/**
+ * Descobre o slug do handoff do Orquestrador escaneando `.orchestration/`.
+ * Filtra por presenca real de um `handoff.json` legivel (v2 ou pre-v2) — um
+ * diretorio orfao de uma run cancelada, sem handoff nenhum, nao deve contar
+ * como candidato e forcar uma ambiguidade espuria.
+ */
 function discoverOrchestradorSlugs(projectRoot) {
   const dir = join(projectRoot, ".orchestration");
   if (!existsSync(dir)) return [];
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+      .map((entry) => entry.name)
+      .filter((slug) => orchestradorHandoffCandidates(projectRoot, slug).some((path) => existsSync(path)));
   } catch {
     return [];
   }
@@ -102,17 +115,36 @@ function discoverOrchestradorSlugs(projectRoot) {
  * Tenta ler o handoff do Orquestrador para um dado `slug`:
  * 1. `.orchestration/<slug>/report/handoff.json` (layout v2)
  * 2. `.orchestration/<slug>/handoff.json` (raiz, pre-v2)
+ *
+ * Prefere o primeiro candidato que EXISTE E VALIDA. Um handoff v2 presente
+ * mas corrompido/invalido nao deve mascarar um handoff v1 legado valido no
+ * segundo caminho — so retorna um resultado invalido quando nenhum
+ * candidato validou.
  */
 function readOrchestradorHandoff(projectRoot, slug) {
-  const candidates = [
-    join(projectRoot, ".orchestration", slug, "report", "handoff.json"),
-    join(projectRoot, ".orchestration", slug, "handoff.json"),
-  ];
-  for (const path of candidates) {
-    const result = readHandoffSafe(path, path);
-    if (result) return result;
+  let firstInvalid = null;
+  for (const path of orchestradorHandoffCandidates(projectRoot, slug)) {
+    let result;
+    try {
+      result = readHandoffSafe(path, path);
+    } catch (error) {
+      // Malformed JSON at this candidate must not stop the search — a valid
+      // handoff at the next candidate (e.g. a pre-v2 legacy fallback) should
+      // still be found rather than masked by this one's corruption.
+      firstInvalid ??= {
+        handoff: null,
+        valid: false,
+        version_mismatch: false,
+        errors: [{ code: error.code, message: error.message }],
+        path,
+      };
+      continue;
+    }
+    if (!result) continue;
+    if (result.valid) return result;
+    firstInvalid ??= result;
   }
-  return null;
+  return firstInvalid;
 }
 
 /**

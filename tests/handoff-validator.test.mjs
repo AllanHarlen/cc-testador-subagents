@@ -164,6 +164,53 @@ test("rejects a PARTIAL/BLOCKED status with a near-empty summary", () => {
   assert.ok(result.errors.some((e) => e.code === "SUMMARY_TOO_SHORT_FOR_NON_DONE_STATUS"));
 });
 
+// --- WF-010: structured waiver ---
+
+function validWaiver(overrides = {}) {
+  return {
+    owner: "Produto",
+    motivo: "Scan de acessibilidade indisponivel neste ambiente",
+    impacto: "Cobertura WCAG AA nao verificada nesta run",
+    validade: "2026-12-31T00:00:00.000Z",
+    condicaoDeReabertura: "Rodar o Testador de novo assim que a10y voltar a rodar no ambiente",
+    ...overrides,
+  };
+}
+
+test("accepts a well-formed waiver on a BLOCKED handoff", () => {
+  const result = validateHandoff(validTestadorHandoff({ status: "BLOCKED", waiver: validWaiver() }));
+  assert.equal(result.ok, true);
+});
+
+test("accepts a waiver with validade: null (no deadline)", () => {
+  const result = validateHandoff(validTestadorHandoff({ status: "PARTIAL", waiver: validWaiver({ validade: null }) }));
+  assert.equal(result.ok, true);
+});
+
+test("a handoff with no waiver field is still valid (not every PARTIAL/BLOCKED is a formal waiver)", () => {
+  const result = validateHandoff(validTestadorHandoff({ status: "PARTIAL" }));
+  assert.equal(result.ok, true);
+});
+
+test("rejects a waiver on a DONE handoff", () => {
+  const result = validateHandoff(validTestadorHandoff({ status: "DONE", waiver: validWaiver() }));
+  assert.ok(result.errors.some((e) => e.code === "WAIVER_REQUIRES_NON_DONE_STATUS"));
+});
+
+test("rejects a waiver missing a required field", () => {
+  for (const field of ["owner", "motivo", "impacto", "condicaoDeReabertura"]) {
+    const waiver = validWaiver();
+    delete waiver[field];
+    const result = validateHandoff(validTestadorHandoff({ status: "BLOCKED", waiver }));
+    assert.ok(result.errors.some((e) => e.code === "INVALID_WAIVER" && e.path === `waiver.${field}`), `expected INVALID_WAIVER for missing ${field}`);
+  }
+});
+
+test("rejects a waiver with an unparseable validade", () => {
+  const result = validateHandoff(validTestadorHandoff({ status: "BLOCKED", waiver: validWaiver({ validade: "not-a-date" }) }));
+  assert.ok(result.errors.some((e) => e.code === "INVALID_WAIVER" && e.path === "waiver.validade"));
+});
+
 test("HANDOFF_STAGES includes testador between orchestrador and executor", () => {
   const stages = [...HANDOFF_STAGES];
   const iOrq = stages.indexOf("orchestrador");

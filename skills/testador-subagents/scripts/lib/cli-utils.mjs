@@ -89,11 +89,18 @@ export function readJsonFile(path) {
   }
 }
 
-export function executeJsonCli(main) {
+// `resolveExitCode(result)`, when provided, lets a specific CLI mark a
+// *successful* (non-throwing) result as needing attention — e.g. ingest-upstream
+// distinguishing an ambiguous multi-slug result from a clean ingest — without
+// changing the default (exit 0 on success) for the other CLIs sharing this
+// helper. Return `undefined`/`0` for the default; a non-zero number overrides it.
+export function executeJsonCli(main, { resolveExitCode } = {}) {
   Promise.resolve()
     .then(() => main(process.argv.slice(2)))
     .then((result) => {
       console.log(JSON.stringify({ ok: true, ...result }, null, 2));
+      const exitCode = resolveExitCode?.(result);
+      if (exitCode) process.exitCode = exitCode;
     })
     .catch((error) => {
       console.error(JSON.stringify({

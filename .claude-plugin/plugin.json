@@ -5,7 +5,12 @@
   "author": {
     "name": "allanharlen"
   },
-  "dependencies": [],
+  "dependencies": [
+    {
+      "name": "cc-pensador",
+      "marketplace": "cc-pensador"
+    }
+  ],
   "keywords": [
     "testador",
     "qa",

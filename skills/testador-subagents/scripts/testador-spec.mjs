@@ -49,7 +49,12 @@ export const FINDING_CATEGORIES = Object.freeze([
 
 export const SEVERITIES = Object.freeze(["critical", "serious", "moderate", "minor", "info"]);
 
-export const RUN_STATUSES = Object.freeze([
+// N-19: named VERDICT_STATUSES, not RUN_STATUSES, because this is the test
+// report's final verdict vocabulary (used to derive handoff.status), not the
+// run lifecycle state machine — that one is `RUN_STATUSES` in
+// scripts/lib/testador-state.mjs (PENDING/RUNNING/DONE/...), a different,
+// incompatible enum that used to share this exact name.
+export const VERDICT_STATUSES = Object.freeze([
   "APROVADO",
   "APROVADO_COM_RESSALVAS",
   "REPROVADO",

@@ -16,6 +16,7 @@ import {
   completionGateRequirements,
   planGates,
 } from "../skills/testador-subagents/scripts/lib/gates.mjs";
+import { COMPLETION_GATE_DEFINITIONS } from "../skills/testador-subagents/scripts/lib/testador-state.mjs";
 
 const SCRIPT = fileURLToPath(new URL("../skills/testador-subagents/scripts/testador-gates.mjs", import.meta.url));
 
@@ -196,6 +197,21 @@ test("COMPLETION_GATE_BY_PLAN_GATE only maps to the 4 waivable completion gate i
     assert.ok(
       ["stack", "smoke", "deterministic", "a11y", "uiux", "spec-coverage", "reports"].includes(id),
       `unexpected completion gate id: ${id}`,
+    );
+  }
+});
+
+// N-20 guard: every plan-gate -> completion-gate mapping must resolve to a
+// completion gate that actually exists in COMPLETION_GATE_DEFINITIONS (the
+// state machine's source of truth) — not just a plausible-looking string.
+// A gate planned here with no matching definition would be advisory-only:
+// it would never actually gate completion.
+test("every COMPLETION_GATE_BY_PLAN_GATE value has a matching COMPLETION_GATE_DEFINITIONS entry", () => {
+  const definedIds = new Set(Object.keys(COMPLETION_GATE_DEFINITIONS));
+  for (const [planGate, completionGate] of Object.entries(COMPLETION_GATE_BY_PLAN_GATE)) {
+    assert.ok(
+      definedIds.has(completionGate),
+      `plan gate "${planGate}" maps to undefined completion gate "${completionGate}"`,
     );
   }
 });

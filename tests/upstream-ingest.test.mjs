@@ -177,3 +177,29 @@ test("degrades to standalone mode when handoff has unsupported handoffVersion", 
   assert.equal(result.mode, "standalone");
   assert.ok(result.warning?.includes("version") || result.warning?.includes("standalone"));
 });
+
+test("prefers a valid pre-v2 root handoff over a corrupt v2 handoff, instead of masking it (N-14)", () => {
+  const root = fixture();
+  // v2 path exists but is not valid JSON.
+  const v2Path = join(root, ".orchestration/login-social/report/handoff.json");
+  mkdirSync(join(v2Path, ".."), { recursive: true });
+  writeFileSync(v2Path, "{ not valid json", "utf8");
+  // Legacy root path is a valid handoff.
+  writeHandoff(root, ".orchestration/login-social/handoff.json", baseHandoff("orchestrador", "login-social"));
+
+  const result = ingestUpstream({ projectRoot: root, slug: "login-social" });
+  assert.equal(result.mode, "joint", "a valid legacy handoff must not be masked by a corrupt v2 handoff");
+  assert.ok(result.orchestradorHandoff);
+});
+
+test("does not count an orphan .orchestration/<slug>/ directory without a handoff.json as a slug candidate (N-15)", () => {
+  const root = fixture();
+  writeHandoff(root, ".orchestration/login-social/report/handoff.json", baseHandoff("orchestrador", "login-social"));
+  // Orphan directory from a cancelled run: no handoff.json anywhere inside it.
+  mkdirSync(join(root, ".orchestration/abandoned-run"), { recursive: true });
+  writeFileSync(join(root, ".orchestration/abandoned-run/some-other-file.txt"), "leftover", "utf8");
+
+  const result = ingestUpstream({ projectRoot: root });
+  assert.equal(result.mode, "joint", "the orphan directory must not force a spurious ambiguity");
+  assert.equal(result.slug, "login-social");
+});

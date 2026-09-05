@@ -16,7 +16,7 @@ import {
   PHASE_ORDER,
   REQUIRED_SKILLS,
   RETIRED_IDENTIFIERS,
-  RUN_STATUSES,
+  VERDICT_STATUSES,
   SEVERITIES,
 } from "../skills/testador-subagents/scripts/testador-spec.mjs";
 
@@ -64,9 +64,9 @@ test("COMPLETION_GATE_IDS match COMPLETION_GATE_DEFINITIONS in testador-state.mj
   assert.deepEqual(stateGateIds, specGateIds);
 });
 
-test("RUN_STATUSES covers the four expected values", () => {
+test("VERDICT_STATUSES covers the four expected values", () => {
   const expected = ["APROVADO", "APROVADO_COM_RESSALVAS", "REPROVADO", "PARCIAL"].sort();
-  assert.deepEqual([...RUN_STATUSES].sort(), expected);
+  assert.deepEqual([...VERDICT_STATUSES].sort(), expected);
 });
 
 test("no RETIRED_IDENTIFIERS appear outside tests/ and CHANGELOG.md", () => {

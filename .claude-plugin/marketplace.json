@@ -5,7 +5,9 @@
         "name": "allanharlen",
         "email": "allanharlen@gmail.com"
     },
-    "allowCrossMarketplaceDependenciesOn": [],
+    "allowCrossMarketplaceDependenciesOn": [
+        "cc-pensador"
+    ],
     "plugins": [
         {
             "name": "cc-testador-subagents",

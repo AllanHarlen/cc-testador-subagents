@@ -56,3 +56,30 @@ test("package.json declares exactly the pinned runtime deps the runner/ layer ne
   }
   assert.equal(pkg.devDependencies.fastCheck ?? pkg.devDependencies["fast-check"], "4.9.0");
 });
+
+// WF-005 / DEC-007: `dependencies: []` used to be false — two of the three
+// REQUIRED_SKILLS (frontend-design, ui-ux-pro-max) are actually shipped by
+// cc-pensador, a sibling plugin, not by an unrelated third party. This test
+// links the manifest's declared dependency to skill-detect.mjs's own claim
+// about where those skills come from, so the two facts can't silently
+// diverge again the way they did before.
+test("plugin.json declares cc-pensador as a dependency, matching skill-detect.mjs's own remediation text", async () => {
+  const plugin = readJson(".claude-plugin/plugin.json");
+  const dependencyNames = (plugin.dependencies ?? []).map((d) => d.name);
+  assert.ok(
+    dependencyNames.includes("cc-pensador"),
+    "cc-pensador ships two of the three REQUIRED_SKILLS (frontend-design, ui-ux-pro-max) — it must be a declared dependency",
+  );
+});
+
+test("marketplace.json allows the cc-pensador cross-marketplace dependency declared in plugin.json", () => {
+  const plugin = readJson(".claude-plugin/plugin.json");
+  const marketplace = readJson(".claude-plugin/marketplace.json");
+  const dependencyMarketplaces = (plugin.dependencies ?? []).map((d) => d.marketplace);
+  for (const marketplaceName of dependencyMarketplaces) {
+    assert.ok(
+      (marketplace.allowCrossMarketplaceDependenciesOn ?? []).includes(marketplaceName),
+      `marketplace.json must allow cross-marketplace dependency on "${marketplaceName}"`,
+    );
+  }
+});

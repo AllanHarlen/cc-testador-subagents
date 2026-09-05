@@ -9,6 +9,7 @@ import test from "node:test";
 import {
   classifyFinding,
   correlate2xxWithoutEffect,
+  mapVerdictToHandoffStatus,
   triageFindings,
 } from "../skills/testador-subagents/scripts/lib/finding-triage.mjs";
 
@@ -180,4 +181,38 @@ test("a finding IS promoted to blocking when it shares multiple significant word
   const result = classifyFinding({ category: "QUALITY_FLOOR", title: "keyboard focus not visible on buttons" }, requirements);
   assert.equal(result.blocking, true);
   assert.match(result.blockingReason, /RF-21/);
+});
+
+// --- hasWaivedGate -> PARCIAL (production path for the fourth verdict) ---
+
+test("runStatus is PARCIAL when hasWaivedGate is true and there are no blocking findings", () => {
+  const result = triageFindings({ rawFindings: [], hasWaivedGate: true });
+  assert.equal(result.runStatus, "PARCIAL");
+});
+
+test("a blocking finding still wins over hasWaivedGate: REPROVADO, not PARCIAL", () => {
+  const result = triageFindings({
+    rawFindings: [{ category: "CORS_ERROR", title: "CORS blocked" }],
+    hasWaivedGate: true,
+  });
+  assert.equal(result.runStatus, "REPROVADO");
+});
+
+test("hasWaivedGate defaults to false and does not change existing behavior", () => {
+  const result = triageFindings({ rawFindings: [] });
+  assert.equal(result.runStatus, "APROVADO");
+});
+
+// --- mapVerdictToHandoffStatus (WF-002) ---
+
+test("mapVerdictToHandoffStatus covers the normative mapping for the whole verdict enum", () => {
+  assert.equal(mapVerdictToHandoffStatus("REPROVADO"), "BLOCKED");
+  assert.equal(mapVerdictToHandoffStatus("PARCIAL"), "PARTIAL");
+  assert.equal(mapVerdictToHandoffStatus("APROVADO"), "DONE");
+  assert.equal(mapVerdictToHandoffStatus("APROVADO_COM_RESSALVAS"), "DONE");
+});
+
+test("mapVerdictToHandoffStatus rejects an unknown verdict rather than silently defaulting", () => {
+  assert.throws(() => mapVerdictToHandoffStatus("UNKNOWN_VALUE"), RangeError);
+  assert.throws(() => mapVerdictToHandoffStatus(undefined), RangeError);
 });

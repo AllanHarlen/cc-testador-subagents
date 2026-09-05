@@ -24,4 +24,15 @@ function main(argv) {
   return { result: ingestUpstream({ projectRoot: root, slug }) };
 }
 
-executeJsonCli(main);
+// A shell caller chaining `&&` on this CLI needs to be able to tell "clean
+// joint ingest" (exit 0), "ambiguous — needs --slug" (exit 3), and "degraded
+// to standalone because the upstream handoff was invalid/corrupt" (exit 4)
+// apart — all three previously exited 0 identically.
+executeJsonCli(main, {
+  resolveExitCode: (result) => {
+    const mode = result?.result?.mode;
+    if (mode === "ambiguous") return 3;
+    if (mode === "standalone" && result?.result?.invalidHandoff) return 4;
+    return 0;
+  },
+});

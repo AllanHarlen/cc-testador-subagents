@@ -157,6 +157,11 @@ Validar antes de fechar:
 node "${CLAUDE_SKILL_DIR}/scripts/validate-handoff.mjs" --file {artefatos_dir}/handoff.json
 ```
 
-Status: DONE se APROVADO ou APROVADO_COM_RESSALVAS; PARTIAL se gate waived; BLOCKED se REPROVADO.
+Status: use o campo `handoffStatus` que `triage-findings.mjs` ja calcula
+(`lib/finding-triage.mjs::mapVerdictToHandoffStatus`) — nao derive a
+mapeacao voce mesmo. Regra normativa que ele implementa: `DONE` se APROVADO
+ou APROVADO_COM_RESSALVAS; `PARTIAL` se PARCIAL (gate obrigatorio waivado —
+passe `--has-waived-gate true` ao chamar `triage-findings.mjs` quando isso
+ocorreu); `BLOCKED` se REPROVADO.
 Em modo conjunto: `nextStage` aponta para `cc-executor-subagents`.
 Gate `reports` fecha.

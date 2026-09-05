@@ -272,6 +272,13 @@ export function triageFindings(options = {}) {
     apiCalls = [],
     domAssertions = [],
     flowRecords = [],
+    // A required, waivable completion gate (deterministic/a11y/uiux/spec-coverage)
+    // was closed N/A instead of DONE — see testador-state.mjs's own
+    // RUN_GATES_WAIVED check. Gives PARCIAL its production path: a gate that
+    // never ran is not equivalent to "no violations found" (WORKFLOW.md sec.
+    // 8.4), so the verdict cannot be a plain APROVADO even when every finding
+    // that *was* collected is clean.
+    hasWaivedGate = false,
   } = options;
 
   // Correlacionador 2xx-sem-efeito
@@ -291,7 +298,12 @@ export function triageFindings(options = {}) {
 
   let runStatus;
   if (all.some((f) => f.blocking)) {
+    // A blocking finding always wins: it is a stronger signal than a waived
+    // gate, and REPROVADO already means "cannot ship as-is" — there is no
+    // status less final than PARCIAL to further downgrade to.
     runStatus = "REPROVADO";
+  } else if (hasWaivedGate) {
+    runStatus = "PARCIAL";
   } else if (informativos.length > 0) {
     runStatus = "APROVADO_COM_RESSALVAS";
   } else {
@@ -312,4 +324,30 @@ export function triageFindings(options = {}) {
       ),
     },
   };
+}
+
+/**
+ * WORKFLOW.md sec. 8.6 / WF-002: the verdict-to-handoff-status mapping is
+ * normative ("REPROVADO gera handoff BLOCKED, PARCIAL gera PARTIAL, e
+ * APROVADO ou APROVADO_COM_RESSALVAS gera DONE") but, before this function,
+ * existed only as prose — nothing in code prevented a REPROVADO run from
+ * shipping a handoff.json with status DONE. `runStatus` is expected to
+ * already be `triageFindings()`'s output (its `hasWaivedGate` option is what
+ * gives PARCIAL its production path — see there).
+ *
+ * @param {"APROVADO"|"APROVADO_COM_RESSALVAS"|"REPROVADO"|"PARCIAL"} runStatus
+ * @returns {"DONE"|"PARTIAL"|"BLOCKED"}
+ */
+export function mapVerdictToHandoffStatus(runStatus) {
+  switch (runStatus) {
+    case "REPROVADO":
+      return "BLOCKED";
+    case "PARCIAL":
+      return "PARTIAL";
+    case "APROVADO":
+    case "APROVADO_COM_RESSALVAS":
+      return "DONE";
+    default:
+      throw new RangeError(`mapVerdictToHandoffStatus: unknown runStatus ${JSON.stringify(runStatus)}`);
+  }
 }
