@@ -256,15 +256,15 @@ cc-testador-subagents/
 |       |-- flow-fixture.mjs
 |       `-- network-recorder.mjs
 |-- scripts/
-|   `-- (16 wrappers de compatibilidade, 1:1 com os CLIs canônicos abaixo)
+|   `-- (17 wrappers de compatibilidade, 1:1 com os CLIs canônicos abaixo)
 `-- skills/
     `-- testador-subagents/
         |-- SKILL.md
         |-- scripts/
         |   |-- testador-spec.mjs (fonte de verdade doc<->código, não é CLI, sem wrapper)
-        |   |-- (16 CLIs canônicos)
+        |   |-- (17 CLIs canônicos)
         |   `-- lib/
-        |       `-- (20 módulos)
+        |       `-- (21 módulos)
         |-- references/
         |   |-- workflow.md
         |   |-- preflight-check.md

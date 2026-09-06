@@ -54,6 +54,16 @@ const DESIGN_CATEGORIES = new Set([
   "DESIGN_ACCENT_OVERUSE",
   "DESIGN_ANTIPATTERN",
   "DESIGN_PREVIEW_DIVERGENCE",
+  // Gate de conformidade em runtime (lib/runtime-design-probe.mjs) — violacao
+  // de token declarado (nao apenas o hex-vs-var(--*) estatico ja coberto
+  // acima). DESIGN_TOKEN_DEAD fica de fora de proposito: "nunca referenciado"
+  // e higiene do contrato, nao violacao visivel, e segue a regra generica de
+  // requisito rastreavel (mesmo tratamento de QUALITY_FLOOR).
+  "DESIGN_TOKEN_UNRESOLVED",
+  "DESIGN_COLOR_OFF_PALETTE",
+  "DESIGN_FONT_NOT_DELIVERED",
+  "DESIGN_VIEWPORT_OVERFLOW",
+  "DESIGN_NAV_DOMINANCE",
 ]);
 
 // Categorias nunca bloqueantes (sem upgrade por requisito)

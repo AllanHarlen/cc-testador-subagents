@@ -125,6 +125,33 @@ Quando Open Design presente:
 node "${CLAUDE_SKILL_DIR}/scripts/check-design-conformance.mjs" --dir {artefatos_dir}
 ```
 
+**Conformidade de design em runtime (Achado 12.10).** `check-design-conformance.mjs`
+acima e estatico (verbatim vs materializado); nenhuma fase deste plugin nem do
+Orquestrador abre um navegador de verdade para checar token computado, paleta,
+fonte entregue ou layout por viewport — foi assim que `os-types.ts` escapou de um
+review de codigo que corrigiu o arquivo irmao com a mesma violacao, e que uma fonte
+declarada mas nunca entregue (`next/font` ausente) so renderizou porque estava
+instalada na maquina do desenvolvedor. Antes de rodar o script abaixo, dirija a app
+via Playwright MCP por rota-chave e por viewport (`--viewports` da project-config,
+que agora inclui `375x812` por padrao — o viewport onde os achados 12.7/12.8 da
+run analisada apareceram), injetando `RUNTIME_DESIGN_PROBE_SCRIPT`
+(`lib/runtime-design-probe.mjs`) via `browser_evaluate`, e acumule cada
+`{route, viewport, probe}` em `{artefatos_dir}/run/design-probes.json`:
+
+```bash
+node "${CLAUDE_SKILL_DIR}/scripts/check-runtime-design.mjs" --dir {artefatos_dir} --root {project_root}
+```
+
+Os cinco checks (analisadores puros, testados sem navegador em
+`tests/runtime-design-probe.test.mjs`): (1) todo token declarado resolve no `:root`
+com o valor esperado; (2) varredura de `body *` por cor/raio/tamanho de fonte
+computados fora da paleta/escala; (3) `document.fonts` + link de stylesheet
+confirmam que a fonte do contrato carrega sem depender do host; (4) censo estatico
+de tokens declarados vs referenciados no fonte (camadas mortas do contrato); (5)
+overflow horizontal, colisao/gutter zero e dominancia de navegacao por viewport.
+Sem `design-probes.json` (Playwright MCP indisponivel), o script degrada
+explicitamente — nunca inventa aprovacao.
+
 Gate `uiux` fecha. `spec-coverage` fecha na fase 9 (build-coverage-matrix.mjs roda de
 novo, agora com o resultado da execucao para confirmar cobertura de fato, nao apenas
 planejada) — ver `lib/gates.mjs::COMPLETION_GATE_BY_PLAN_GATE`.
@@ -137,9 +164,17 @@ node "${CLAUDE_SKILL_DIR}/scripts/triage-findings.mjs" --dir {artefatos_dir} \
 ```
 
 Regra de corte: requisito explicito violado = bloqueante, boa pratica nao pedida =
-informativo. `--has-open-design true` torna as 5 categorias `DESIGN_*` sempre
-bloqueantes (existe um contrato de tokens declarado para violar); sem essa flag, elas
-seguem a regra generica (bloqueante somente com requisito rastreavel). O correlacionador
+informativo. `--has-open-design true` torna 10 categorias `DESIGN_*` sempre
+bloqueantes — as 5 estaticas de `check-design-conformance.mjs`
+(`DESIGN_TOKEN_LITERAL`, `DESIGN_TOKEN_INVENTED`, `DESIGN_ACCENT_OVERUSE`,
+`DESIGN_ANTIPATTERN`, `DESIGN_PREVIEW_DIVERGENCE`) e as 5 de runtime de
+`check-runtime-design.mjs` (`DESIGN_TOKEN_UNRESOLVED`, `DESIGN_COLOR_OFF_PALETTE`,
+`DESIGN_FONT_NOT_DELIVERED`, `DESIGN_VIEWPORT_OVERFLOW`, `DESIGN_NAV_DOMINANCE`) —
+existe um contrato de tokens declarado para violar; sem essa flag, elas seguem a
+regra generica (bloqueante somente com requisito rastreavel). `DESIGN_TOKEN_DEAD`
+(token declarado nunca referenciado) fica fora dessa lista de proposito: e higiene
+de contrato, nao violacao visivel, e sempre segue a regra generica (mesmo
+tratamento de `QUALITY_FLOOR`). O correlacionador
 2xx-sem-efeito-na-UI le `{artefatos_dir}/run/network-calls.jsonl`, gravado pelos specs
 gerados via `runner/fixtures/flow-fixture.mjs::persistFlowEvidence` durante a fase 7.
 

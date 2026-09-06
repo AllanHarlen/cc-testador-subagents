@@ -261,15 +261,15 @@ cc-testador-subagents/
 |       |-- flow-fixture.mjs
 |       `-- network-recorder.mjs
 |-- scripts/
-|   `-- (16 compatibility wrappers, 1:1 with the canonical CLIs below)
+|   `-- (17 compatibility wrappers, 1:1 with the canonical CLIs below)
 `-- skills/
     `-- testador-subagents/
         |-- SKILL.md
         |-- scripts/
         |   |-- testador-spec.mjs (doc<->code source of truth, not a CLI, no wrapper)
-        |   |-- (16 canonical CLIs)
+        |   |-- (17 canonical CLIs)
         |   `-- lib/
-        |       `-- (20 modules)
+        |       `-- (21 modules)
         |-- references/
         |   |-- workflow.md
         |   |-- preflight-check.md
