@@ -31,6 +31,11 @@ export const LAYOUT_FILE_DIRECTORIES = Object.freeze({
   "coverage-matrix.json": "plan",
   "flow-map.json": "plan",
   "monitoring.md": "run",
+  // Achado 12.10: probes de browser_evaluate (RUNTIME_DESIGN_PROBE_SCRIPT, um
+  // {route, viewport, probe} por chamada) e o veredito determinado dos cinco
+  // analisadores sobre eles.
+  "design-probes.json": "run",
+  "design-runtime.json": "review",
   "test-report.md": "review",
   "a11y-report.md": "review",
   "uiux-report.md": "review",

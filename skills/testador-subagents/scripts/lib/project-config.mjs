@@ -33,7 +33,7 @@ import { dirname, join, resolve } from "node:path";
  *   - **readyTimeoutSeconds**: 120
  *   - **wcagTags**: wcag2a,wcag2aa,wcag21a,wcag21aa
  *   - **a11yBlocking**: false
- *   - **viewports**: 390x844,1440x900
+ *   - **viewports**: 390x844,1440x900,375x812
  *   - **seedCredentialsRef**: .env.test
  *   - **serverLifecycle**: auto
  *   - **specMode**: hybrid
@@ -94,7 +94,7 @@ export const DEFAULT_PROJECT_CONFIG = Object.freeze({
   readyTimeoutSeconds: 120,
   wcagTags: "wcag2a,wcag2aa,wcag21a,wcag21aa",
   a11yBlocking: false,
-  viewports: "390x844,1440x900",
+  viewports: "390x844,1440x900,375x812",
   seedCredentialsRef: "",
   serverLifecycle: "auto",
   specMode: "hybrid",

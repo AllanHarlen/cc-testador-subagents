@@ -20,7 +20,7 @@ if (!artifactsDir) {
 const specsDir = join(artifactsDir, "run", "specs");
 const reportDir = join(artifactsDir, "run", "playwright-report");
 const baseURL = process.env.TESTADOR_BASE_URL ?? "http://localhost:3000";
-const configuredViewports = (process.env.TESTADOR_VIEWPORTS ?? "390x844,1440x900")
+const configuredViewports = (process.env.TESTADOR_VIEWPORTS ?? "390x844,1440x900,375x812")
   .split(",").map((entry) => entry.trim().match(/^(\d+)x(\d+)$/i)).filter(Boolean)
   .map(([, width, height]) => ({ width: Number(width), height: Number(height) }));
 const viewports = configuredViewports.length > 0 ? configuredViewports : [{ width: 390, height: 844 }, { width: 1440, height: 900 }];

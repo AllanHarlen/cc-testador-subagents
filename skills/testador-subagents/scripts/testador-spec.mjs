@@ -40,6 +40,21 @@ export const FINDING_CATEGORIES = Object.freeze([
   "DESIGN_ACCENT_OVERUSE",
   "DESIGN_ANTIPATTERN",
   "DESIGN_PREVIEW_DIVERGENCE",
+  // Gate de conformidade de design em runtime (Achado 12.10 da run
+  // oficina-saas-20260905-001): as cinco fases do plugin so leem codigo-fonte
+  // e testam funcao — nenhuma abre um browser real para checar token
+  // computado, paleta, fonte entregue ou layout por viewport. Ver
+  // lib/runtime-design-probe.mjs.
+  "DESIGN_TOKEN_UNRESOLVED",
+  "DESIGN_COLOR_OFF_PALETTE",
+  "DESIGN_FONT_NOT_DELIVERED",
+  "DESIGN_VIEWPORT_OVERFLOW",
+  "DESIGN_NAV_DOMINANCE",
+  // Camada de contrato declarada mas nunca referenciada no fonte (ex.:
+  // --space-*, --motion-*) -- boa pratica de higiene do contrato, nao uma
+  // violacao visivel; segue a mesma regra de QUALITY_FLOOR (bloqueante so
+  // com requisito rastreavel), por isso fica fora de DESIGN_CATEGORIES.
+  "DESIGN_TOKEN_DEAD",
   "A11Y_VIOLATION",
   "QUALITY_FLOOR",
   "AI_DESIGN_CLICHE",

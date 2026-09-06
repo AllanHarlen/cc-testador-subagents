@@ -54,6 +54,13 @@ export const COMPLETION_GATE_BY_PLAN_GATE = Object.freeze({
   "collect-results": "deterministic",
   "a11y-scan": "a11y",
   "design-conformance": "uiux",
+  // Achado 12.10: nenhuma fase existente abre um navegador para checar token
+  // computado, paleta, fonte entregue ou overflow/dominancia de nav por
+  // viewport — `design-conformance` acima e estatico (verbatim vs
+  // materializado), e a Fase 9.5 do orquestrador so exercita funcao.
+  // Mesmo bucket de completion gate que `design-conformance`/`uiux-review`
+  // (ambos Fase 8, UI/UX): os tres juntos e que decidem se `uiux` fecha.
+  "design-runtime": "uiux",
   "uiux-review": "uiux",
   "coverage-check": "spec-coverage",
   "report-review": "reports",
@@ -178,6 +185,7 @@ export function planGates(context = {}) {
     skip("collect-results", "SMOKE scope: skipped");
     skip("a11y-scan", "SMOKE scope: skipped");
     skip("design-conformance", "SMOKE scope: skipped");
+    skip("design-runtime", "SMOKE scope: skipped");
     skip("uiux-review", "SMOKE scope: skipped");
     skip("coverage-check", "SMOKE scope: skipped");
     skip("triage", "SMOKE scope: triage still runs but only on MCP findings");
@@ -240,8 +248,16 @@ export function planGates(context = {}) {
         ["--dir", "{artefatos_dir}", "--root", "{project_root}"],
         "Check token conformance (var(--*) vs hex literals, invented tokens, accent overuse) and preview structural comparison against the Open Design proposal.",
       ));
+      gates.push(script(
+        "design-runtime",
+        8,
+        "check-runtime-design.mjs",
+        ["--dir", "{artefatos_dir}", "--root", "{project_root}"],
+        "Before running this: drive the running app via Playwright MCP per key route/viewport and inject RUNTIME_DESIGN_PROBE_SCRIPT (lib/runtime-design-probe.mjs) via browser_evaluate, appending each {route, viewport, probe} to {artefatos_dir}/run/design-probes.json. This script then analyzes what was captured — token resolution, palette/scale conformance, font delivery, and viewport layout (overflow, nav dominance, gutter) — and writes {artefatos_dir}/review/design-runtime.json.",
+      ));
     } else {
       skip("design-conformance", "hasOpenDesign is false: no Open Design tokens to validate against");
+      skip("design-runtime", "hasOpenDesign is false: no Open Design contract to validate at runtime");
     }
 
     gates.push(action(

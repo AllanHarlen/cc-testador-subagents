@@ -212,6 +212,46 @@ test("mapVerdictToHandoffStatus covers the normative mapping for the whole verdi
   assert.equal(mapVerdictToHandoffStatus("APROVADO_COM_RESSALVAS"), "DONE");
 });
 
+// --- Gate de conformidade de design em runtime (Achado 12.10) ---
+
+for (const category of [
+  "DESIGN_TOKEN_UNRESOLVED",
+  "DESIGN_COLOR_OFF_PALETTE",
+  "DESIGN_FONT_NOT_DELIVERED",
+  "DESIGN_VIEWPORT_OVERFLOW",
+  "DESIGN_NAV_DOMINANCE",
+]) {
+  test(`${category} is informative without hasOpenDesign and no traceable requirement`, () => {
+    const result = classifyFinding({ category, title: "some finding" }, []);
+    assert.equal(result.blocking, false);
+  });
+
+  test(`${category} is always blocking when hasOpenDesign is true`, () => {
+    const result = classifyFinding({ category, title: "some finding" }, [], false, { hasOpenDesign: true });
+    assert.equal(result.blocking, true);
+    assert.match(result.blockingReason, /Open Design/);
+  });
+}
+
+test("DESIGN_TOKEN_DEAD is informative even with hasOpenDesign — it's contract hygiene, not a visible violation", () => {
+  const result = classifyFinding(
+    { category: "DESIGN_TOKEN_DEAD", title: "--space-4 never referenced" },
+    [],
+    false,
+    { hasOpenDesign: true },
+  );
+  assert.equal(result.blocking, false);
+});
+
+test("DESIGN_TOKEN_DEAD is blocking when a traceable requirement matches (QUALITY_FLOOR treatment)", () => {
+  const requirements = [{ id: "RF-09", title: "Espacamento deve seguir a escala de tokens --space-* do contrato de design" }];
+  const result = classifyFinding(
+    { category: "DESIGN_TOKEN_DEAD", title: "Escala de tokens --space-* do contrato de design nunca referenciada" },
+    requirements,
+  );
+  assert.equal(result.blocking, true);
+});
+
 test("mapVerdictToHandoffStatus rejects an unknown verdict rather than silently defaulting", () => {
   assert.throws(() => mapVerdictToHandoffStatus("UNKNOWN_VALUE"), RangeError);
   assert.throws(() => mapVerdictToHandoffStatus(undefined), RangeError);
