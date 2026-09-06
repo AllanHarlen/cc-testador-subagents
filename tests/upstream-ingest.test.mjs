@@ -68,6 +68,67 @@ test("detects joint mode from .orchestration/<slug>/report/handoff.json (layout 
   assert.ok(result.orchestradorHandoff);
 });
 
+/* -------------------------------------------------------------------------- */
+/* Achado 14 — raiz atual .orchestrator/runs/<slug>/ (Orquestrador migrado)    */
+/* -------------------------------------------------------------------------- */
+
+test("detects joint mode from .orchestrator/runs/<slug>/report/handoff.json (current root)", () => {
+  const root = fixture();
+  writeHandoff(
+    root,
+    ".orchestrator/runs/login-social/report/handoff.json",
+    baseHandoff("orchestrador", "login-social", null, {
+      consumer: "cc-testador-subagents",
+      entrypoint: "/testador",
+    }),
+  );
+
+  const result = ingestUpstream({ projectRoot: root });
+  assert.equal(result.mode, "joint");
+  assert.equal(result.slug, "login-social");
+  assert.ok(result.orchestradorHandoff);
+});
+
+test("prefers the current .orchestrator/runs/ root over a legacy .orchestration/ copy for the same slug", () => {
+  const root = fixture();
+  writeHandoff(
+    root,
+    ".orchestration/login-social/report/handoff.json",
+    baseHandoff("orchestrador", "login-social", null, null),
+  );
+  writeHandoff(
+    root,
+    ".orchestrator/runs/login-social/report/handoff.json",
+    { ...baseHandoff("orchestrador", "login-social", null, null), summary: "current root wins" },
+  );
+
+  const result = ingestUpstream({ projectRoot: root, slug: "login-social" });
+  assert.equal(result.mode, "joint");
+  assert.equal(result.orchestradorHandoff.summary, "current root wins");
+});
+
+test("discovers a slug that only exists under the current .orchestrator/runs/ root (no --slug given)", () => {
+  const root = fixture();
+  writeHandoff(
+    root,
+    ".orchestrator/runs/oficina/report/handoff.json",
+    baseHandoff("orchestrador", "oficina", null, null),
+  );
+  const result = ingestUpstream({ projectRoot: root });
+  assert.equal(result.mode, "joint");
+  assert.equal(result.slug, "oficina");
+});
+
+test("sees slugs across BOTH roots at once and reports ambiguity when they differ", () => {
+  const root = fixture();
+  writeHandoff(root, ".orchestration/legado/report/handoff.json", baseHandoff("orchestrador", "legado", null, null));
+  writeHandoff(root, ".orchestrator/runs/novo/report/handoff.json", baseHandoff("orchestrador", "novo", null, null));
+
+  const result = ingestUpstream({ projectRoot: root });
+  assert.equal(result.mode, "ambiguous");
+  assert.deepEqual([...result.slugCandidates].sort(), ["legado", "novo"]);
+});
+
 test("falls back to root handoff.json for pre-v2 Orchestrador layout", () => {
   const root = fixture();
   writeHandoff(

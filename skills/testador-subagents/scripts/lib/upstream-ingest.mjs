@@ -8,11 +8,15 @@ import { validateHandoff } from "./handoff-validator.mjs";
  * Pensador via upstream chain) para determinar o modo de operacao (conjunto
  * vs avulso) e coletar os insumos de validacao.
  *
- * Ordem de descoberta:
- * 1. `.orchestration/<slug>/report/handoff.json` (layout v2 do Orquestrador)
- * 2. `.orchestration/<slug>/handoff.json` (raiz, layout pre-v2)
- * 3. `.orchestration/<slug>/` scan (slug do proprio slug passado)
- * 4. Modo avulso (sem upstream)
+ * Ordem de descoberta (Achado 14: raiz do Orquestrador migrou de
+ * `.orchestration/<slug>/` para `.orchestrator/runs/<slug>/`; a raiz legada
+ * continua sendo lida, nunca migrada automaticamente):
+ * 1. `.orchestrator/runs/<slug>/report/handoff.json` (raiz atual, layout v2)
+ * 2. `.orchestrator/runs/<slug>/handoff.json` (raiz atual, pre-v2)
+ * 3. `.orchestration/<slug>/report/handoff.json` (raiz legada, layout v2)
+ * 4. `.orchestration/<slug>/handoff.json` (raiz legada, pre-v2)
+ * 5. scan das duas raizes pelo proprio slug
+ * 6. Modo avulso (sem upstream)
  *
  * Ao encontrar um handoff valido, sobe a chain `upstream` ate o Pensador
  * para coletar: `prd`/`requirements-index` (modo PRD), `openspec-change`
@@ -85,41 +89,55 @@ function followUpstreamToPensador(startHandoff, projectRoot) {
   return current.stage === "pensador" ? current : null;
 }
 
-function orchestradorHandoffCandidates(projectRoot, slug) {
+/** As duas raizes de run do Orquestrador, atual primeiro — Achado 14. */
+function orchestradorRunRoots(projectRoot) {
   return [
-    join(projectRoot, ".orchestration", slug, "report", "handoff.json"),
-    join(projectRoot, ".orchestration", slug, "handoff.json"),
+    join(projectRoot, ".orchestrator", "runs"),
+    join(projectRoot, ".orchestration"),
   ];
 }
 
-/**
- * Descobre o slug do handoff do Orquestrador escaneando `.orchestration/`.
- * Filtra por presenca real de um `handoff.json` legivel (v2 ou pre-v2) — um
- * diretorio orfao de uma run cancelada, sem handoff nenhum, nao deve contar
- * como candidato e forcar uma ambiguidade espuria.
- */
-function discoverOrchestradorSlugs(projectRoot) {
-  const dir = join(projectRoot, ".orchestration");
-  if (!existsSync(dir)) return [];
-  try {
-    return readdirSync(dir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .filter((slug) => orchestradorHandoffCandidates(projectRoot, slug).some((path) => existsSync(path)));
-  } catch {
-    return [];
-  }
+function orchestradorHandoffCandidates(projectRoot, slug) {
+  return orchestradorRunRoots(projectRoot).flatMap((root) => [
+    join(root, slug, "report", "handoff.json"),
+    join(root, slug, "handoff.json"),
+  ]);
 }
 
 /**
- * Tenta ler o handoff do Orquestrador para um dado `slug`:
- * 1. `.orchestration/<slug>/report/handoff.json` (layout v2)
- * 2. `.orchestration/<slug>/handoff.json` (raiz, pre-v2)
+ * Descobre o slug do handoff do Orquestrador escaneando as duas raizes
+ * possiveis (`.orchestrator/runs/` e `.orchestration/`, legada). Filtra por
+ * presenca real de um `handoff.json` legivel (v2 ou pre-v2) — um diretorio
+ * orfao de uma run cancelada, sem handoff nenhum, nao deve contar como
+ * candidato e forcar uma ambiguidade espuria.
+ */
+function discoverOrchestradorSlugs(projectRoot) {
+  const slugs = new Set();
+  for (const dir of orchestradorRunRoots(projectRoot)) {
+    if (!existsSync(dir)) continue;
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (orchestradorHandoffCandidates(projectRoot, entry.name).some((path) => existsSync(path))) {
+          slugs.add(entry.name);
+        }
+      }
+    } catch {
+      // Raiz ilegivel — nao bloqueia a descoberta na outra raiz.
+    }
+  }
+  return [...slugs];
+}
+
+/**
+ * Tenta ler o handoff do Orquestrador para um dado `slug`, na ordem de
+ * `orchestradorHandoffCandidates` (raiz atual antes da legada, v2 antes de
+ * pre-v2).
  *
- * Prefere o primeiro candidato que EXISTE E VALIDA. Um handoff v2 presente
- * mas corrompido/invalido nao deve mascarar um handoff v1 legado valido no
- * segundo caminho — so retorna um resultado invalido quando nenhum
- * candidato validou.
+ * Prefere o primeiro candidato que EXISTE E VALIDA. Um handoff mais novo
+ * presente mas corrompido/invalido nao deve mascarar um handoff valido mais
+ * abaixo na lista (layout mais antigo ou raiz legada) — so retorna um
+ * resultado invalido quando nenhum candidato validou.
  */
 function readOrchestradorHandoff(projectRoot, slug) {
   let firstInvalid = null;
@@ -154,8 +172,9 @@ function readOrchestradorHandoff(projectRoot, slug) {
  * @param {object} options
  * @param {string} options.projectRoot  Raiz do projeto testado.
  * @param {string} [options.slug]       Slug do handoff a ingerir. Sem slug,
- *                                      varre `.orchestration/` e usa o
- *                                      unico candidato disponivel.
+ *                                      varre `.orchestrator/runs/` e
+ *                                      `.orchestration/` e usa o unico
+ *                                      candidato disponivel.
  * @returns {IngestResult}
  */
 export function ingestUpstream(options = {}) {
@@ -176,7 +195,7 @@ export function ingestUpstream(options = {}) {
   } else {
     const slugs = discoverOrchestradorSlugs(projectRoot);
     if (slugs.length === 0) {
-      return buildAvulsoResult(projectRoot, "No .orchestration/ directory found — running in standalone mode.");
+      return buildAvulsoResult(projectRoot, "No .orchestrator/runs/ or .orchestration/ directory found — running in standalone mode.");
     }
     if (slugs.length > 1) {
       // Varios slugs: o chamador deve confirmar via AskUserQuestion antes de
