@@ -8,6 +8,20 @@
 
 Todas as mudancas notaveis deste plugin sao documentadas aqui.
 
+## [1.2.1] - 2026-09-12 - Contrato de handoff visual: novos roles `ui-prototype`/`brand-assets`
+
+Sincronizacao com a extensao aditiva v1 do pacote visual resolvido (`references/handoff-contract.md`
+secao 10) publicada por `cc-pensador`, `cc-orchestrador-subagents` e `cc-executor-subagents` na
+mesma leva.
+
+- `references/handoff-contract.md`: adicionados os roles `ui-prototype` (`prototypes/`) e
+  `brand-assets` (`assets/`, com `assets/manifest.json`) na tabela de artefatos do estagio DESIGN.
+- `skills/testador-subagents/scripts/lib/handoff-validator.mjs`: `ui-prototype` e `brand-assets`
+  passam a validar como roles conhecidos do vocabulario por estagio.
+- `tests/docs-links.test.mjs`: o teste de citacoes `assets/*` deixa de varrer `handoff-contract.md`
+  — o documento descreve, por contrato, caminhos dentro do pacote resolvido de um *produtor*
+  (Pensador), nao assets proprios do Testador.
+
 ## [1.1.1] - 2026-09-03 - Sincronizacao pos-cloud: gate de a11y honesto, ingest sem off-by-one, preflight nao mutante
 
 Correcoes encontradas numa revisao de bugs/performance/gaps de negocio apos os tres plugins

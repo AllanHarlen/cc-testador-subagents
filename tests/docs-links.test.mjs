@@ -57,6 +57,9 @@ test("every references/*.md citation in the docs points to a file that exists", 
 test("every assets/* citation in the docs points to a file that exists", () => {
   const pattern = /assets\/([a-z0-9.-]+\.(?:json|md))/g;
   for (const docPath of DOC_FILES) {
+    // The shared handoff contract intentionally describes paths inside a
+    // producer's resolved design package; they are not Testador-owned assets.
+    if (docPath.endsWith("handoff-contract.md")) continue;
     const text = readText(docPath);
     for (const match of text.matchAll(pattern)) {
       const target = join(ASSETS_DIR, match[1]);
