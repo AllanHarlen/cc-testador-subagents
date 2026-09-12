@@ -5,6 +5,7 @@ Prompts de referencia para os subagentes de cada fase. Todo subagente deve:
    "skills nao acessiveis" e continuar com o checklist embutido.
 2. Reportar no campo "Skills utilizadas" as skills que guiaram a execucao.
 3. Respeitar as regras de seguranca: credencial nunca em log, spec ou screenshot.
+4. Se Context7 estiver disponivel (`checks.optional.mcp.context7`) e a task envolver bibliotecas/frameworks de teste ou APIs externas, consulte documentacao oficial via resolve-library-id -> query-docs com foco em um unico conceito (Single-Concept Scoping) e limite de ate 3 consultas por tarefa. Nao use para logica de negocio interna.
 
 ---
 

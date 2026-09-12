@@ -1,12 +1,12 @@
 # Changelog
 
-## Unreleased
-
-- Runner agora executa Axe por fluxo, persiste `axe-results.json`/achados normalizados e encaminha falhas Playwright como findings bloqueantes.
-- `project-config` controla `baseUrl`, `viewports`, `wcagTags` e `a11yBlocking`; preflight só altera permissões com `--fix-permissions`.
-- Escrita de artefatos valida descendência física em `.testador`; adicionada suíte `npm run test:integration` com Chromium.
-
 Todas as mudancas notaveis deste plugin sao documentadas aqui.
+
+## [1.2.2] - 2026-09-12 - Integração e diretrizes do Context7 MCP para testes
+
+- `skills/testador-subagents/references/mcp-context.md`: ampliação completa da seção do Context7 MCP para consulta de documentação oficial de frameworks de teste (Playwright, axe-core, Vitest, Jest, Mock Service Worker).
+- Adicionadas regras de Single-Concept Scoping, seleção canônica versionada no formato `/org/project/version`, pontuação oficial e limite de 3 chamadas.
+- `skills/testador-subagents/references/subagent-prompts.md`: inclusão da regra 4 instruindo subagentes a consultarem documentação oficial de libs de teste quando disponíveis.
 
 ## [1.2.1] - 2026-09-12 - Contrato de handoff visual: novos roles `ui-prototype`/`brand-assets`
 
