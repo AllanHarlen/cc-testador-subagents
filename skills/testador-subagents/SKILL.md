@@ -67,6 +67,16 @@ Executor — ele permanece o ultimo estagio da cadeia.
 Detalhe de cada fase em `references/workflow.md`. Detalhe de cada skill por fase em
 `references/skills-integration.md`.
 
+## Execucao no fio principal e estado so via CLI
+
+- **Voce conduz a run inteira nesta sessao, fase a fase.** Nunca entregue a conducao das etapas restantes a um fork, a um subagente em segundo plano, a `ScheduleWakeup` ou a `/loop` — nem quando a run for longa ou a janela de contexto estiver pesada. Subagentes so entram como os Task subagents nativos por fatia previstos no fluxo (exploracao, execucao deterministica, review UI/UX, review do laudo), de forma sincrona; eles nunca conversam com o usuario, nunca avancam fase nem fecham gate. Se o contexto ficar pesado, deixe o estado consistente (`testador-state.mjs`) e peca ao usuario para retomar com `resume`.
+  Motivo (run real do Pensador, OficinaAI, 2026-09-18): um fork recebeu "execute as etapas restantes", respondeu que ja estava rodando em segundo plano, nao usou nenhuma ferramenta util e ficou 74 minutos bloqueado num `AskUserQuestion` que so o usuario poderia responder.
+- **O estado duravel so muda pelo CLI.** `state.json`, `events.jsonl` e `.state.lock` (em `.testador/...`) sao escritos exclusivamente por `testador-state.mjs` (`init`, `phase`, `task`, `gate`, `run --status ...`). Nunca os edite com `Edit`/`Write`/`sed`/redirecionamento: um hook `PreToolUse` (`hooks/hooks.json` → `scripts/guard-state.mjs`) bloqueia a escrita manual, e o `verify` do CLI detecta divergencia entre snapshot e log de eventos.
+- **O `handoff.json` nao e escrito de memoria.** Siga o envelope de `references/handoff-contract.md` e valide antes de reportar: `node "${CLAUDE_SKILL_DIR}/scripts/validate-handoff.mjs" --file {artefatos_dir}/handoff.json`. `run --status DONE` recusa (`HANDOFF_INVALID`) um handoff que reprova na validacao — inclusive o escrito a mao sem `handoffVersion`, `stage`, `producer`, `artifactRoot`, `summary`.
+- **O recap final e honesto sobre a cobertura.** Liste explicitamente toda fase, gate ou verificacao dispensada, fechada como `N/A`, degradada ou feita com fallback, e nunca declare "APROVADO" ou "concluido" quando houver alguma. Cobertura parcial fecha como `PARTIAL` com o `summary` nomeando a lacuna — nunca como `DONE`.
+
+---
+
 ## Fase 0 — Preflight
 
 ```bash

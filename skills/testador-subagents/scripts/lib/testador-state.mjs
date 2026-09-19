@@ -19,6 +19,7 @@ import { isDeepStrictEqual } from "node:util";
 import { PHASE_NAMES, PHASE_ORDER } from "../testador-spec.mjs";
 import { ARTIFACT_LAYOUT_VERSION, ensureArtifactLayout } from "./artifact-layout.mjs";
 import { readCheckpointIndex } from "./checkpoint-index.mjs";
+import { validateHandoff } from "./handoff-validator.mjs";
 import {
   CONFIGURABLE_FIELDS,
   PROJECT_CONFIG_SCHEMA_VERSION as PROJECT_CONFIG_FILE_SCHEMA_VERSION,
@@ -1772,6 +1773,35 @@ export function resumeRunAtDirectory(artifactDir, options = {}) {
   }, options);
 }
 
+/**
+ * Recusa fechar a run como DONE quando existe um `handoff.json` que reprova em
+ * `validateHandoff()`. Um handoff escrito a mao (sem `handoffVersion`, `stage`, `producer`, ...)
+ * ja foi entregue como "concluido" numa run real do Pensador; o consumidor da cadeia cai em
+ * descoberta por convencao e perde o contrato. Sem `handoff.json` nao ha o que validar aqui
+ * (runs avulsas): a obrigatoriedade do arquivo continua nos gates de conclusao.
+ */
+function assertHandoffValidWhenPresent(artifactDir) {
+  for (const relative of ["handoff.json", join("report", "handoff.json")]) {
+    const file = join(resolve(artifactDir), relative);
+    if (!existsSync(file)) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(readFileSync(file, "utf8"));
+    } catch (error) {
+      throw new TestadorStateError("HANDOFF_INVALID", `${relative} is not valid JSON: ${error.message}`, { file });
+    }
+    const result = validateHandoff(parsed);
+    if (!result.ok) {
+      throw new TestadorStateError(
+        "HANDOFF_INVALID",
+        `Run cannot be DONE while ${relative} fails validateHandoff() — fix it (see references/handoff-contract.md) or close the run PARTIAL/BLOCKED`,
+        { file, errors: result.errors },
+      );
+    }
+    return;
+  }
+}
+
 export function updateRunStatus(artifactDir, status, options = {}) {
   const normalizedStatus = String(status ?? "").toUpperCase();
   if (!RUN_STATUS_SET.has(normalizedStatus)) {
@@ -1785,6 +1815,7 @@ export function updateRunStatus(artifactDir, status, options = {}) {
     }
     assertRunMutable(state, "update run status");
     assertRunTransition(state, normalizedStatus);
+    if (normalizedStatus === "DONE") assertHandoffValidWhenPresent(artifactDir);
     if (["DONE", "CANCELLED"].includes(normalizedStatus)) {
       const nonTerminalTasks = Object.values(state.tasks ?? {}).filter((task) => !TERMINAL_TASK_STATUSES.has(task.status));
       if (nonTerminalTasks.length > 0) {

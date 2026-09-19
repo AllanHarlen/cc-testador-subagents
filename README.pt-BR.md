@@ -16,6 +16,8 @@ O Testador fica entre `/orquestrador` (constrói) e `/executor` (corrige), valid
 - triagem os achados por regra de corte explícita: **requisito explícito rastreável violado → bloqueante; boa prática não declarada → informativo**;
 - publica `handoff.json` apontando para `/executor`, que consome o laudo como plano pré-definido.
 
+> **Guard rails (1.3.0):** o estado da run (`state.json`, `events.jsonl`) so e escrito por `testador-state.mjs` — um hook `PreToolUse` bloqueia a edição manual; `run --status DONE` recusa um `handoff.json` que reprova em `validateHandoff()`; a run é conduzida na sessão principal (nunca delegada a fork/segundo plano) e o recap final precisa declarar o que foi pulado, dispensado ou degradado.
+
 ## Posição na cadeia de workflow
 
 ```text
@@ -256,15 +258,15 @@ cc-testador-subagents/
 |       |-- flow-fixture.mjs
 |       `-- network-recorder.mjs
 |-- scripts/
-|   `-- (17 wrappers de compatibilidade, 1:1 com os CLIs canônicos abaixo)
+|   `-- (18 wrappers de compatibilidade, 1:1 com os CLIs canônicos abaixo)
 `-- skills/
     `-- testador-subagents/
         |-- SKILL.md
         |-- scripts/
         |   |-- testador-spec.mjs (fonte de verdade doc<->código, não é CLI, sem wrapper)
-        |   |-- (17 CLIs canônicos)
+        |   |-- (18 CLIs canônicos)
         |   `-- lib/
-        |       `-- (21 módulos)
+        |       `-- (22 módulos)
         |-- references/
         |   |-- workflow.md
         |   |-- preflight-check.md
