@@ -18,6 +18,8 @@ The Testador sits between `/orquestrador` (builds) and `/executor` (fixes), vali
 - triages findings by an explicit blocking rule: **explicit traceable requirement violated → blocking; undeclared best practice → informative**;
 - publishes a `handoff.json` pointing at `/executor` so the Executor can consume the test report as a pre-defined plan.
 
+> **Guard rails (1.3.0):** the run state (`state.json`, `events.jsonl`) is written only by `testador-state.mjs` — a `PreToolUse` hook blocks hand-edits; `run --status DONE` refuses a `handoff.json` that fails `validateHandoff()`; the run is conducted in the main session (never delegated to a fork/background agent) and the final recap must disclose skipped, waived or degraded work.
+
 ## Position in the workflow chain
 
 ```text
@@ -261,15 +263,15 @@ cc-testador-subagents/
 |       |-- flow-fixture.mjs
 |       `-- network-recorder.mjs
 |-- scripts/
-|   `-- (17 compatibility wrappers, 1:1 with the canonical CLIs below)
+|   `-- (18 compatibility wrappers, 1:1 with the canonical CLIs below)
 `-- skills/
     `-- testador-subagents/
         |-- SKILL.md
         |-- scripts/
         |   |-- testador-spec.mjs (doc<->code source of truth, not a CLI, no wrapper)
-        |   |-- (17 canonical CLIs)
+        |   |-- (18 canonical CLIs)
         |   `-- lib/
-        |       `-- (21 modules)
+        |       `-- (22 modules)
         |-- references/
         |   |-- workflow.md
         |   |-- preflight-check.md
