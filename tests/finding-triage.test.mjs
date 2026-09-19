@@ -256,3 +256,18 @@ test("mapVerdictToHandoffStatus rejects an unknown verdict rather than silently 
   assert.throws(() => mapVerdictToHandoffStatus("UNKNOWN_VALUE"), RangeError);
   assert.throws(() => mapVerdictToHandoffStatus(undefined), RangeError);
 });
+
+for (const category of ["DESIGN_BRIEF_MISMATCH", "DESIGN_CONTRACT_HASH_MISMATCH"]) {
+  test(`${category} is always blocking with hasOpenDesign and informative without a traceable requirement otherwise`, () => {
+    const blocking = classifyFinding({ category, title: "brief mismatch" }, [], false, { hasOpenDesign: true });
+    assert.equal(blocking.blocking, true);
+    const informative = classifyFinding({ category, title: "brief mismatch" }, []);
+    assert.equal(informative.blocking, false);
+  });
+}
+
+test("DESIGN_DARK_PROBE_MISSING is always blocking, with or without Open Design", () => {
+  const finding = { category: "DESIGN_DARK_PROBE_MISSING", severity: "critical", title: "dark not verified" };
+  assert.equal(classifyFinding(finding, [], false, { hasOpenDesign: true }).blocking, true);
+  assert.equal(classifyFinding(finding, []).blocking, true);
+});

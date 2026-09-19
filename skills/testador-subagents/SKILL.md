@@ -116,5 +116,8 @@ dentro de `artefatos_dir`. Layout de artefatos por estagio — ver `references/p
 - `references/skills-integration.md` — as 3 skills obrigatorias, mapeadas a fase e gate.
 - `references/openspec-ingestion.md` — `#### Scenario:` -> caso de teste.
 - `references/open-design-validation.md` — conformidade de token/anti-padrao/preview.
+  Inclui a captura do probe escuro (`theme:"dark"` em `run/design-probes.json`), **obrigatoria** quando o
+  `design-brief.json` expoe o tema escuro: sua ausencia e o achado critico `DESIGN_DARK_PROBE_MISSING`
+  (bloqueante; `check-runtime-design.mjs` e `triage-findings.mjs`).
 - `references/a11y-criteria.md` — tags WCAG, severidade, upgrade por requisito.
 - `references/visual-criteria.md` — piso de qualidade e clicheis de design de IA.

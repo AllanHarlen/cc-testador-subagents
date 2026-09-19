@@ -99,6 +99,11 @@ Se Open Design presente:
 - Contar aparicoes do accent (<=2x por pagina exceto links).
 - Comparar telas-chave contra preview/ (estrutural, nao pixel-diff).
 - Conferir anti-padroes da §9 do DESIGN.md.
+- Tema escuro: se `design-brief.json` traz `themeExposure` != `light-only`, capture tambem um
+  probe `theme:"dark"` por rota-chave/viewport (forcando `data-theme="dark"` ou
+  `page.emulateMedia({ colorScheme: 'dark' })` via Playwright MCP) e grave-o em
+  `run/design-probes.json`. Sem ele: `DESIGN_DARK_PROBE_MISSING` critico (procedimento em
+  `references/open-design-validation.md`).
 
 Se skill inacessivel: `BLOCKED` — nao degradar silenciosamente.
 
