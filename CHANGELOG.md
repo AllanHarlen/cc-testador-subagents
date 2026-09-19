@@ -2,6 +2,35 @@
 
 Todas as mudancas notaveis deste plugin sao documentadas aqui.
 
+## [1.6.0] — 2026-09-19 — Probe escuro obrigatorio por gate em codigo
+
+- **Gate:** novo achado `DESIGN_DARK_PROBE_MISSING` (critico, sempre bloqueante, com ou sem `--has-open-design`). Dispara quando o `design-brief.json` expoe o tema escuro (`themeExposure` diferente de `light-only`) e `run/design-probes.json` nao tem nenhuma entrada `theme:"dark"` (ou o arquivo esta ausente/ilegivel). Substitui o `warnings` de 1.5.0, que aprovava em silencio.
+- **Onde roda:** `lib/dark-probe-gate.mjs` (regra unica), usado por `check-runtime-design.mjs` (inclusive no resultado `degraded`) e por `triage-findings.mjs`, que decide o `handoffStatus`: a run nao fecha `DONE` sem o probe escuro.
+- **Procedimento executavel:** `SKILL.md`, `references/workflow.md`, `references/open-design-validation.md` e o prompt do Revisor UI/UX (`subagent-prompts.md`) descrevem a captura exata via Playwright MCP (`data-theme="dark"` e emulacao de `prefers-color-scheme: dark`) e a gravacao em `run/design-probes.json` com `theme`.
+- **Testes:** `tests/dark-probe-gate.test.mjs` (unitario e triagem ponta a ponta), casos novos em `check-runtime-design.test.mjs` e `finding-triage.test.mjs`.
+
+## [1.5.0] — 2026-09-19 — Conformidade com o brief e tema escuro em runtime (Fase 8 do plano)
+
+Consome o pacote `resolved/` do Pensador 2.32.0 (temas claro e escuro, `design-brief.json`, `contractSha256`).
+
+- **T1 (doc):** `references/open-design-validation.md` alinhado ao codigo: o "verbatim" e o `resolved/` do handoff (`tokens.css` com `:root`, `[data-theme="dark"]` e `prefers-color-scheme`), nao um arquivo de catalogo.
+- **T2 (id):** `upstream-ingest.mjs` grava o id do design system como `<id>`, nao `<id>/resolved`. A entrada tambem expoe `contractSha256`, `themes` e `designBriefPath` (absoluto).
+- **T3 (brief):** novo achado `DESIGN_BRIEF_MISMATCH` no probe de runtime (`analyzeBriefConformance`): o tema que a pagina de fato pinta (luminancia de `--bg`, nao o atributo) e comparado com `themeDefault`/`themeExposure` do `design-brief.json`, e a primaria travada com o `--accent` computado, so no tema claro (o engine deriva outra primaria no escuro). Campo nao travado nunca e cobrado.
+- **Tema escuro:** as entradas de `run/design-probes.json` ganham `theme` (`default`|`light`|`dark`). Quando `themeExposure` nao e `light-only`, o probe roda tambem no escuro (`data-theme="dark"` ou `prefers-color-scheme` emulado) e os tokens esperados vem do bloco escuro do `tokens.css`. Sem probe escuro, `details.warnings` avisa: nunca aprovacao silenciosa.
+- **Hash:** `DESIGN_CONTRACT_HASH_MISMATCH` quando o `sha256` do `design-contract.json` em disco difere do `contractSha256` do handoff.
+- **Triagem:** as duas categorias novas sao sempre bloqueantes com `hasOpenDesign` (requisito rastreavel); sem ele, seguem a regra generica.
+- **Correcao:** `parseTokensCss` passa a manter a primeira ocorrencia de cada token (o valor do tema claro); antes o override escuro apagava o valor claro. O script de probe agora coleta tokens tambem de `[data-theme]` e `@media`, e devolve `theme`.
+- **Testes:** fixtures de tema invertido e de tema escuro quebrado geram achados bloqueantes; unitarios para `parseThemedTokensCss`, `renderedTheme` e `analyzeBriefConformance`.
+
+## [1.4.0] — 2026-09-19 — Contrato de handoff do design system (Fase 6 do plano)
+
+Sync com `cc-pensador` 2.32.0 (Fase 6 do plano de design system): `handoff-contract.md` reescrito (secao 6) e byte-identico nos 4 plugins.
+
+- **Contrato:** `design-system-files` aponta para `design-systems/<id>/resolved/` (unico pacote normativo); `source/` guarda so a proveniencia do engine; nao existe mais `original/` nem verbatim de catalogo. Front matter do `DESIGN.md` e normativo, a prosa nao. `materializeInto` = `<uiPackageDir>/design-systems/<id>/`.
+- **Novos campos da entrada:** `contractSha256` (sha256 hex ou `null`), `themes` (inclui `light` e `dark`), `designBriefPath` (relativo ao `artifactRoot`), alem de `variant`, `authoritative`, `sourcePath`, `assetsManifest` e `validation.{status,audit}` no schema.
+- **Politica de token:** token novo so por nova versao do Pensador; a correcao que o exigir registra `DESIGN_CHANGE_REQUEST`.
+- **Validador:** `validateHandoff()` rejeita `contractSha256` malformado (`INVALID_CONTRACT_SHA256`), `themes` sem `light`/`dark` (`INVALID_DESIGN_THEMES`) e `designBriefPath` vazio (`INVALID_DESIGN_BRIEF_PATH`) em entradas `resolved`; fixture e casos de teste em cada um dos 4 plugins.
+
 ## [1.3.0] - 2026-09-19 - Guard do estado da run, handoff validado no DONE e sync com cc-pensador 2.28/2.29
 
 Endurece o plugin contra as falhas observadas numa run real do Pensador (OficinaAI, sessao

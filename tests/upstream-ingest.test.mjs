@@ -191,6 +191,40 @@ test("detects hasOpenDesign from design-system-files role in Pensador artifacts"
   assert.equal(result.ingest.designSystemFilesEntries[0].materializeInto, "packages/ui/design-systems/default");
 });
 
+test("design-system-files resolved entry: id is <id> (not <id>/resolved) and carries contractSha256, themes, designBriefPath", () => {
+  const root = fixture();
+  const sha = "a".repeat(64);
+  const pensadorHandoff = {
+    ...baseHandoff("pensador", "login-social"),
+    artifactRoot: ".pensador/login-social-v1",
+    artifactMode: "prd",
+    artifacts: [
+      {
+        role: "design-system-files",
+        path: "design-systems/gestuor/resolved/",
+        required: true,
+        variant: "resolved",
+        materializeInto: "packages/ui/design-systems/gestuor",
+        contractSha256: sha,
+        themes: ["light", "dark"],
+        designBriefPath: "design-brief.json",
+      },
+    ],
+  };
+  writeHandoff(root, ".pensador/login-social-v1/handoff.json", pensadorHandoff);
+  writeHandoff(
+    root,
+    ".orchestration/login-social/report/handoff.json",
+    baseHandoff("orchestrador", "login-social", { stage: "pensador", handoffPath: ".pensador/login-social-v1/handoff.json" }),
+  );
+
+  const entry = ingestUpstream({ projectRoot: root }).ingest.designSystemFilesEntries[0];
+  assert.equal(entry.id, "gestuor");
+  assert.equal(entry.contractSha256, sha);
+  assert.deepEqual(entry.themes, ["light", "dark"]);
+  assert.ok(entry.designBriefPath.replace(/\\/g, "/").endsWith(".pensador/login-social-v1/design-brief.json"));
+});
+
 test("detects hasOpenSpec from openspec-change role in Pensador artifacts", () => {
   const root = fixture();
   const pensadorHandoff = {

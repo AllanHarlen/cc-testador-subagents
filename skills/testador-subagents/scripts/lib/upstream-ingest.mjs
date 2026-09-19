@@ -324,12 +324,20 @@ function buildIngest(orchestradorHandoff, pensadorHandoff, projectRoot) {
   if (pensadorHandoff) {
     const entries = (pensadorHandoff.artifacts ?? []).filter((a) => a.role === "design-system-files");
     for (const entry of entries) {
-      const absDir = join(resolve(projectRoot, pensadorHandoff.artifactRoot), entry.path);
+      const artifactRootAbs = resolve(projectRoot, pensadorHandoff.artifactRoot);
+      const absDir = join(artifactRootAbs, entry.path);
       designSystemFilesEntries.push({
-        id: entry.path.replace(/^design-systems\//, "").replace(/\/$/, ""),
+        // `<id>`, nao `<id>/resolved`: o handoff aponta para o pacote `resolved/`.
+        id: entry.path
+          .replace(/^design-systems\//, "")
+          .replace(/\/$/, "")
+          .replace(/\/resolved$/, ""),
         artifactDir: absDir,
         materializeInto: entry.materializeInto ?? null,
         path: entry.path,
+        contractSha256: entry.contractSha256 ?? null,
+        themes: Array.isArray(entry.themes) ? entry.themes : null,
+        designBriefPath: entry.designBriefPath ? join(artifactRootAbs, entry.designBriefPath) : null,
       });
       const tokens = join(absDir, "tokens.css");
       const designMd = join(absDir, "DESIGN.md");

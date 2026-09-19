@@ -9,11 +9,16 @@ import test from "node:test";
 
 import {
   RUNTIME_DESIGN_PROBE_SCRIPT,
+  analyzeBriefConformance,
   analyzeFontDelivery,
   analyzePaletteScan,
   analyzeTokenCensus,
   analyzeTokenResolution,
   analyzeViewportLayout,
+  darkThemeRequired,
+  parseCssColor,
+  parseThemedTokensCss,
+  renderedTheme,
 } from "../skills/testador-subagents/scripts/lib/runtime-design-probe.mjs";
 
 test("RUNTIME_DESIGN_PROBE_SCRIPT is a non-empty self-invoking script that never mutates the DOM", () => {
@@ -226,4 +231,83 @@ test("analyzeViewportLayout: a healthy viewport (no overflow, no collision, smal
   };
   const result = analyzeViewportLayout(probe);
   assert.equal(result.findings.length, 0);
+});
+
+/* -------------------------------------------------------------------------- */
+/* Temas e conformidade com o design-brief.json                               */
+/* -------------------------------------------------------------------------- */
+
+const brief = (fields) => ({
+  fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { value: v, locked: true }])),
+});
+
+test("parseCssColor reads hex and rgb()", () => {
+  assert.deepEqual(parseCssColor("#2563eb"), [37, 99, 235]);
+  assert.deepEqual(parseCssColor("#fff"), [255, 255, 255]);
+  assert.deepEqual(parseCssColor("rgb(37, 99, 235)"), [37, 99, 235]);
+  assert.equal(parseCssColor("oops"), null);
+});
+
+test("parseThemedTokensCss splits :root / [data-theme=dark] / prefers-color-scheme and keeps the light value first", () => {
+  const css = `
+    :root, [data-theme="light"] { color-scheme: light; --bg: #ffffff; --accent: #2563eb; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0b0b0f; } }
+    [data-theme="dark"] { --bg: #0b0b0f; --accent: #6b9cff; }
+    :root { --radius-md: 8px; }`;
+  const themed = parseThemedTokensCss(css);
+  assert.equal(themed.light["--bg"], "#ffffff");
+  assert.equal(themed.dark["--bg"], "#0b0b0f");
+  assert.equal(themed.dark["--accent"], "#6b9cff");
+  assert.equal(themed.dark["--radius-md"], "8px");
+  assert.equal(themed.hasDark, true);
+});
+
+test("renderedTheme reads the painted background, not the attribute", () => {
+  assert.equal(renderedTheme({ tokens: { "--bg": "#0b0b0f" } }), "dark");
+  assert.equal(renderedTheme({ tokens: {}, theme: { backgroundColor: "rgb(255, 255, 255)" } }), "light");
+  assert.equal(renderedTheme({ tokens: {} }), null);
+});
+
+test("analyzeBriefConformance: inverted theme (default=light but the page paints dark) is a critical DESIGN_BRIEF_MISMATCH", () => {
+  const probe = { tokens: { "--bg": "#0b0b0f", "--accent": "#2563eb" }, theme: { dataTheme: null, prefersDark: false } };
+  const { findings } = analyzeBriefConformance(probe, brief({ themeDefault: "light", themeExposure: "toggle" }));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].category, "DESIGN_BRIEF_MISMATCH");
+  assert.equal(findings[0].severity, "critical");
+});
+
+test("analyzeBriefConformance: forced dark probe that still paints light is a broken dark theme", () => {
+  const probe = { tokens: { "--bg": "#ffffff" }, theme: { dataTheme: "dark", prefersDark: false } };
+  const { findings } = analyzeBriefConformance(probe, brief({ themeDefault: "light", themeExposure: "toggle" }), { mode: "dark" });
+  assert.ok(findings.some((f) => f.category === "DESIGN_BRIEF_MISMATCH" && f.evidence.expected === "dark" && f.evidence.rendered === "light"));
+});
+
+test("analyzeBriefConformance: light-only exposure forbids a dark render; system default follows prefersDark", () => {
+  const dark = { tokens: { "--bg": "#0b0b0f" }, theme: { prefersDark: true } };
+  assert.equal(analyzeBriefConformance(dark, brief({ themeExposure: "light-only" })).findings.length, 1);
+  assert.equal(analyzeBriefConformance(dark, brief({ themeDefault: "system", themeExposure: "system" })).findings.length, 0);
+});
+
+test("analyzeBriefConformance: locked primary is compared to --accent in the light theme only", () => {
+  const b = brief({ colorPrimary: "#2563eb", themeDefault: "light", themeExposure: "toggle" });
+  const good = { tokens: { "--bg": "#ffffff", "--accent": "rgb(37, 99, 235)" }, theme: { prefersDark: false } };
+  const bad = { tokens: { "--bg": "#ffffff", "--accent": "#ef4444" }, theme: { prefersDark: false } };
+  const darkOk = { tokens: { "--bg": "#0b0b0f", "--accent": "#6b9cff" }, theme: { dataTheme: "dark", prefersDark: false } };
+  assert.equal(analyzeBriefConformance(good, b).findings.length, 0);
+  assert.equal(analyzeBriefConformance(bad, b).findings[0].evidence.field, "colorPrimary");
+  assert.equal(analyzeBriefConformance(darkOk, b, { mode: "dark" }).findings.length, 0);
+});
+
+test("analyzeBriefConformance: an unlocked primary is never enforced; no brief fields means no findings", () => {
+  const unlocked = { fields: { colorPrimary: { value: "#2563eb", locked: false } } };
+  const probe = { tokens: { "--bg": "#ffffff", "--accent": "#ef4444" }, theme: {} };
+  assert.equal(analyzeBriefConformance(probe, unlocked).findings.length, 0);
+  assert.equal(analyzeBriefConformance(probe, {}).findings.length, 0);
+});
+
+test("darkThemeRequired: true unless the brief says light-only", () => {
+  assert.equal(darkThemeRequired(brief({ themeExposure: "toggle" })), true);
+  assert.equal(darkThemeRequired(brief({ themeExposure: "system" })), true);
+  assert.equal(darkThemeRequired(brief({ themeExposure: "light-only" })), false);
+  assert.equal(darkThemeRequired(null), false);
 });

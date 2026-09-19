@@ -136,11 +136,17 @@ via Playwright MCP por rota-chave e por viewport (`--viewports` da project-confi
 que agora inclui `375x812` por padrao — o viewport onde os achados 12.7/12.8 da
 run analisada apareceram), injetando `RUNTIME_DESIGN_PROBE_SCRIPT`
 (`lib/runtime-design-probe.mjs`) via `browser_evaluate`, e acumule cada
-`{route, viewport, probe}` em `{artefatos_dir}/run/design-probes.json`:
+`{route, viewport, theme, probe}` em `{artefatos_dir}/run/design-probes.json`
+(`theme`: `default`, `light` ou `dark`; quando o brief expoe o tema escuro, capture tambem `dark` —
+ver `open-design-validation.md`):
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/scripts/check-runtime-design.mjs" --dir {artefatos_dir} --root {project_root}
 ```
+
+Alem dos cinco checks abaixo, um sexto confere o app contra o `design-brief.json`
+(`DESIGN_BRIEF_MISMATCH`: tema pintado e primaria travada) e o `contractSha256` do handoff
+(`DESIGN_CONTRACT_HASH_MISMATCH`).
 
 Os cinco checks (analisadores puros, testados sem navegador em
 `tests/runtime-design-probe.test.mjs`): (1) todo token declarado resolve no `:root`
@@ -150,7 +156,11 @@ confirmam que a fonte do contrato carrega sem depender do host; (4) censo estati
 de tokens declarados vs referenciados no fonte (camadas mortas do contrato); (5)
 overflow horizontal, colisao/gutter zero e dominancia de navegacao por viewport.
 Sem `design-probes.json` (Playwright MCP indisponivel), o script degrada
-explicitamente — nunca inventa aprovacao.
+explicitamente — nunca inventa aprovacao. Quando o brief expoe o tema escuro
+(`themeExposure` != `light-only`), o probe `theme:"dark"` e **obrigatorio**: sua ausencia e o
+achado critico `DESIGN_DARK_PROBE_MISSING` (tambem no resultado degradado e na
+`triage-findings.mjs`), nao um aviso. Procedimento de captura em
+`open-design-validation.md` (secao "Captura do probe escuro").
 
 Gate `uiux` fecha. `spec-coverage` fecha na fase 9 (build-coverage-matrix.mjs roda de
 novo, agora com o resultado da execucao para confirmar cobertura de fato, nao apenas
@@ -164,12 +174,13 @@ node "${CLAUDE_SKILL_DIR}/scripts/triage-findings.mjs" --dir {artefatos_dir} \
 ```
 
 Regra de corte: requisito explicito violado = bloqueante, boa pratica nao pedida =
-informativo. `--has-open-design true` torna 10 categorias `DESIGN_*` sempre
+informativo. `--has-open-design true` torna 12 categorias `DESIGN_*` sempre
 bloqueantes — as 5 estaticas de `check-design-conformance.mjs`
 (`DESIGN_TOKEN_LITERAL`, `DESIGN_TOKEN_INVENTED`, `DESIGN_ACCENT_OVERUSE`,
 `DESIGN_ANTIPATTERN`, `DESIGN_PREVIEW_DIVERGENCE`) e as 5 de runtime de
 `check-runtime-design.mjs` (`DESIGN_TOKEN_UNRESOLVED`, `DESIGN_COLOR_OFF_PALETTE`,
-`DESIGN_FONT_NOT_DELIVERED`, `DESIGN_VIEWPORT_OVERFLOW`, `DESIGN_NAV_DOMINANCE`) —
+`DESIGN_FONT_NOT_DELIVERED`, `DESIGN_VIEWPORT_OVERFLOW`, `DESIGN_NAV_DOMINANCE`) e as 2 de
+brief/hash (`DESIGN_BRIEF_MISMATCH`, `DESIGN_CONTRACT_HASH_MISMATCH`) —
 existe um contrato de tokens declarado para violar; sem essa flag, elas seguem a
 regra generica (bloqueante somente com requisito rastreavel). `DESIGN_TOKEN_DEAD`
 (token declarado nunca referenciado) fica fora dessa lista de proposito: e higiene

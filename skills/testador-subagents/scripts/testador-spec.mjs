@@ -50,6 +50,11 @@ export const FINDING_CATEGORIES = Object.freeze([
   "DESIGN_FONT_NOT_DELIVERED",
   "DESIGN_VIEWPORT_OVERFLOW",
   "DESIGN_NAV_DOMINANCE",
+  // Conformidade com o design-brief.json (campo travado: tema, primaria) e
+  // hash do design-contract.json do handoff: requisito explicito e rastreavel.
+  "DESIGN_BRIEF_MISMATCH",
+  "DESIGN_CONTRACT_HASH_MISMATCH",
+  "DESIGN_DARK_PROBE_MISSING",
   // Camada de contrato declarada mas nunca referenciada no fonte (ex.:
   // --space-*, --motion-*) -- boa pratica de higiene do contrato, nao uma
   // violacao visivel; segue a mesma regra de QUALITY_FLOOR (bloqueante so

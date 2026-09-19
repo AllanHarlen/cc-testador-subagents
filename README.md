@@ -2,6 +2,12 @@
 
 Claude Code plugin for real-browser QA between the Orchestrator and the Executor. It adds the skill **`testador-subagents`** and the command **`/testador`**.
 
+> **Dark probe gate (1.6.0):** when `design-brief.json` exposes the dark theme (`themeExposure` other than `light-only`) and `run/design-probes.json` has no `theme: "dark"` probe, the run now gets the critical, always-blocking `DESIGN_DARK_PROBE_MISSING` finding (in `check-runtime-design.mjs` and in `triage-findings.mjs`) instead of a warning. The Phase 8 subagent captures the dark probe itself, via Playwright MCP.
+>
+> **Brief and dark theme at runtime (1.5.0):** the runtime design probe now checks the running app against `design-brief.json` (`DESIGN_BRIEF_MISMATCH`: painted theme vs `themeDefault`/`themeExposure`, locked primary vs `--accent` in the light theme) and, when the brief exposes the dark theme, also probes it (`theme: "dark"` in `run/design-probes.json`). A `contractSha256` that no longer matches `design-contract.json` is `DESIGN_CONTRACT_HASH_MISMATCH`.
+>
+> **Design handoff (1.4.0):** the visual contract in `references/handoff-contract.md` (section 6, byte-identical across the four workflow plugins) now makes `design-systems/<id>/resolved/` the only normative package; `source/` holds engine provenance. The handoff entry carries `contractSha256`, `themes` and `designBriefPath`; a new token only enters through a new Pensador version (`DESIGN_CHANGE_REQUEST`).
+
 📖 **[Documentação em Português](./README.pt-BR.md)** | **Portuguese Documentation**
 
 ## Overview
@@ -271,7 +277,7 @@ cc-testador-subagents/
         |   |-- testador-spec.mjs (doc<->code source of truth, not a CLI, no wrapper)
         |   |-- (18 canonical CLIs)
         |   `-- lib/
-        |       `-- (22 modules)
+        |       `-- (23 modules)
         |-- references/
         |   |-- workflow.md
         |   |-- preflight-check.md

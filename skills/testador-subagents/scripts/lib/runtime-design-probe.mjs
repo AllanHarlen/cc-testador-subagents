@@ -49,19 +49,32 @@ export const RUNTIME_DESIGN_PROBE_SCRIPT = `(() => {
   const root = document.documentElement;
   const rootStyle = getComputedStyle(root);
 
-  // 1. Todo custom property que resolve no :root.
+  // 1. Todo custom property declarado em regra de tema (:root, [data-theme],
+  //    @media) — resolvido no estado atual do :root (o tema ativo).
   const tokens = {};
-  for (const sheet of Array.from(document.styleSheets)) {
-    let rules;
-    try { rules = sheet.cssRules; } catch { continue; }
+  const collect = (rules) => {
     for (const rule of Array.from(rules ?? [])) {
-      if (rule.selectorText !== ':root' || !rule.style) continue;
+      if (rule.cssRules && !rule.style) { collect(rule.cssRules); continue; }
+      if (!rule.style || !/:root|\\[data-theme/.test(rule.selectorText || '')) continue;
       for (let i = 0; i < rule.style.length; i += 1) {
         const prop = rule.style[i];
         if (prop.startsWith('--')) tokens[prop] = rootStyle.getPropertyValue(prop).trim();
       }
     }
+  };
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules;
+    try { rules = sheet.cssRules; } catch { continue; }
+    collect(rules);
   }
+
+  // 1b. Tema efetivo: atributo, color-scheme computado, preferencia do sistema.
+  const theme = {
+    dataTheme: root.getAttribute('data-theme'),
+    colorScheme: rootStyle.colorScheme,
+    prefersDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+    backgroundColor: getComputedStyle(document.body).backgroundColor,
+  };
 
   // 2. Varredura de body * — cor, raio, tamanho de fonte computados.
   const elements = Array.from(document.querySelectorAll('body *')).map((el) => {
@@ -92,6 +105,7 @@ export const RUNTIME_DESIGN_PROBE_SCRIPT = `(() => {
     clientWidth: document.documentElement.clientWidth,
     pageHeight: document.documentElement.scrollHeight,
     tokens,
+    theme,
     elements,
     fonts,
     stylesheetLinks,
@@ -323,4 +337,189 @@ export function analyzeViewportLayout(probe, options = {}) {
   }
 
   return { findings };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Temas e conformidade com o design-brief.json (Fase 8 do plano)             */
+/* -------------------------------------------------------------------------- */
+
+/** Le um valor CSS de cor (`#rgb[a]`, `#rrggbb[aa]`, `rgb[a](...)`) como [r,g,b] ou null. */
+export function parseCssColor(value) {
+  const text = String(value ?? "").trim().toLowerCase();
+  const hex = text.match(/^#([0-9a-f]{3,8})$/);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3 || h.length === 4) h = [...h].map((c) => c + c).join("");
+    if (h.length !== 6 && h.length !== 8) return null;
+    return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  }
+  const rgb = text.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/);
+  if (rgb) return [rgb[1], rgb[2], rgb[3]].map((n) => Math.round(Number(n)));
+  return null;
+}
+
+function relativeLuminance([r, g, b]) {
+  const lin = (c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/**
+ * Separa um `tokens.css` do pacote resolved/ em tokens por tema.
+ * `:root`/`[data-theme="light"]` = base (tambem os tokens compartilhados);
+ * `[data-theme="dark"]` e `@media (prefers-color-scheme: dark)` = overrides
+ * escuros. `dark` ja vem com a base aplicada por baixo.
+ *
+ * @param {string} css
+ * @returns {{light: Record<string,string>, dark: Record<string,string>, hasDark: boolean}}
+ */
+export function parseThemedTokensCss(css) {
+  const text = String(css ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
+  const light = {};
+  const darkOverrides = {};
+  const readDecls = (body, into, keepFirst = false) => {
+    for (const m of body.matchAll(/(--[a-zA-Z][\w-]*)\s*:\s*([^;}]+)/g)) {
+      if (keepFirst && m[1] in into) continue;
+      into[m[1]] = m[2].trim();
+    }
+  };
+  const blocks = (source) => {
+    const out = [];
+    let i = 0;
+    while (i < source.length) {
+      const open = source.indexOf("{", i);
+      if (open === -1) break;
+      let depth = 1;
+      let j = open + 1;
+      while (j < source.length && depth > 0) {
+        if (source[j] === "{") depth += 1;
+        else if (source[j] === "}") depth -= 1;
+        j += 1;
+      }
+      out.push({ selector: source.slice(i, open).trim(), body: source.slice(open + 1, j - 1) });
+      i = j;
+    }
+    return out;
+  };
+  const visit = (source, inDarkMedia) => {
+    for (const { selector, body } of blocks(source)) {
+      if (selector.startsWith("@media")) {
+        visit(body, /prefers-color-scheme:\s*dark/.test(selector));
+      } else if (selector.startsWith("@")) {
+        continue;
+      } else if (inDarkMedia || /\[data-theme=["']dark["']\]/.test(selector)) {
+        readDecls(body, darkOverrides);
+      } else if (/:root|\[data-theme=["']light["']\]/.test(selector)) {
+        readDecls(body, light, true);
+      }
+    }
+  };
+  visit(text, false);
+  return {
+    light,
+    dark: { ...light, ...darkOverrides },
+    hasDark: Object.keys(darkOverrides).length > 0,
+  };
+}
+
+/**
+ * Tema que a pagina realmente renderiza: luminancia do fundo (`--bg` ou o
+ * background computado do body) — nao o atributo, que pode mentir.
+ *
+ * @returns {"light"|"dark"|null}
+ */
+export function renderedTheme(probe) {
+  const rgb = parseCssColor(probe?.tokens?.["--bg"]) ?? parseCssColor(probe?.theme?.backgroundColor);
+  if (!rgb) return null;
+  return relativeLuminance(rgb) < 0.4 ? "dark" : "light";
+}
+
+/** Tema que o atributo/preferencia do sistema declara para a pagina. */
+export function declaredTheme(probe) {
+  const attr = probe?.theme?.dataTheme;
+  if (attr === "light" || attr === "dark") return attr;
+  return probe?.theme?.prefersDark ? "dark" : "light";
+}
+
+const PRIMARY_TOLERANCE = 2;
+
+/**
+ * Conformidade do app rodando com o `design-brief.json` (campos travados).
+ * Cada entrada de probe carrega `mode`: "default" (nada forcado), "light" ou
+ * "dark" (tema forcado via `data-theme` ou `prefers-color-scheme`).
+ *
+ * - tema efetivo x tema esperado para o `mode` (default: `themeDefault`;
+ *   `system` segue `prefersDark`; `light-only` proibe renderizar escuro);
+ * - cor primaria travada x `--accent` computado — so no tema claro, o engine
+ *   deriva outra primaria no escuro.
+ *
+ * @param {object} probe
+ * @param {object} brief  design-brief.json (`fields.<campo>.{value,locked}`).
+ * @param {{mode?: "default"|"light"|"dark"}} [options]
+ * @returns {{findings: Array}}
+ */
+export function analyzeBriefConformance(probe, brief, options = {}) {
+  const mode = options.mode ?? "default";
+  const fields = brief?.fields ?? {};
+  const findings = [];
+  const rendered = renderedTheme(probe);
+  const declared = declaredTheme(probe);
+
+  const themeDefault = fields.themeDefault?.value;
+  const themeExposure = fields.themeExposure?.value;
+
+  let expected = null;
+  if (mode === "light" || mode === "dark") expected = mode;
+  else if (themeExposure === "light-only") expected = "light";
+  else if (themeDefault === "light" || themeDefault === "dark") expected = themeDefault;
+  else if (themeDefault === "system") expected = probe?.theme?.prefersDark ? "dark" : "light";
+
+  if (expected && rendered && rendered !== expected) {
+    findings.push({
+      category: "DESIGN_BRIEF_MISMATCH",
+      severity: "critical",
+      title: `Theme renders ${rendered} but the brief requires ${expected} (${mode === "default" ? `themeDefault=${themeDefault ?? "?"}, themeExposure=${themeExposure ?? "?"}` : `forced ${mode} probe`})`,
+      evidence: { field: mode === "default" ? "themeDefault" : "themeExposure", expected, rendered, declared, mode, backgroundToken: probe?.tokens?.["--bg"] ?? null },
+    });
+  } else if (expected && rendered && declared !== rendered) {
+    findings.push({
+      category: "DESIGN_BRIEF_MISMATCH",
+      severity: "serious",
+      title: `Theme attribute/preference says ${declared} but the page paints ${rendered} — the theme switch is broken`,
+      evidence: { field: "themeExposure", expected, rendered, declared, mode },
+    });
+  }
+
+  const primary = fields.colorPrimary;
+  if (primary?.locked && (mode === "light" || (mode === "default" && rendered === "light"))) {
+    const want = parseCssColor(primary.value);
+    const got = parseCssColor(probe?.tokens?.["--accent"]);
+    if (want && !got) {
+      findings.push({
+        category: "DESIGN_BRIEF_MISMATCH",
+        severity: "critical",
+        title: "Locked primary color: --accent does not resolve in the running app",
+        evidence: { field: "colorPrimary", expected: primary.value, computed: probe?.tokens?.["--accent"] ?? null },
+      });
+    } else if (want && got && want.some((c, i) => Math.abs(c - got[i]) > PRIMARY_TOLERANCE)) {
+      findings.push({
+        category: "DESIGN_BRIEF_MISMATCH",
+        severity: "critical",
+        title: `Locked primary color ${primary.value} differs from the computed --accent ${probe.tokens["--accent"]} in the light theme`,
+        evidence: { field: "colorPrimary", expected: primary.value, computed: probe.tokens["--accent"] },
+      });
+    }
+  }
+  return { findings };
+}
+
+/**
+ * O app expoe tema escuro? (`themeExposure` do brief diferente de
+ * `light-only`; sem brief, nao ha o que exigir.)
+ */
+export function darkThemeRequired(brief) {
+  const exposure = brief?.fields?.themeExposure?.value;
+  return Boolean(exposure) && exposure !== "light-only";
 }

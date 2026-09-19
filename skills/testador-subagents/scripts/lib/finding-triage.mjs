@@ -18,6 +18,7 @@ import { FINDING_CATEGORIES } from "../testador-spec.mjs";
  *   OPENSPEC_SCENARIO_FAILED, REQUIREMENT_NOT_MET, API_CONTRACT_MISMATCH,
  *   DESIGN_TOKEN_LITERAL, DESIGN_TOKEN_INVENTED, DESIGN_ACCENT_OVERUSE,
  *   DESIGN_ANTIPATTERN, DESIGN_PREVIEW_DIVERGENCE,
+ *   DESIGN_BRIEF_MISMATCH, DESIGN_CONTRACT_HASH_MISMATCH,
  *   A11Y_VIOLATION, QUALITY_FLOOR, AI_DESIGN_CLICHE, UIUX_CRITIQUE
  */
 
@@ -29,6 +30,9 @@ import { FINDING_CATEGORIES } from "../testador-spec.mjs";
 // requisito rastreavel) -- ver `classifyFinding`.
 const ALWAYS_BLOCKING = new Set([
   "STACK_DOWN",
+  // O brief expoe o tema escuro mas nenhum probe `theme:"dark"` foi capturado:
+  // o tema escuro nao foi verificado (gate em codigo, sempre bloqueante).
+  "DESIGN_DARK_PROBE_MISSING",
   "CORS_ERROR",
   "API_NON_2XX",
   "UI_DATA_MISMATCH",
@@ -64,6 +68,10 @@ const DESIGN_CATEGORIES = new Set([
   "DESIGN_FONT_NOT_DELIVERED",
   "DESIGN_VIEWPORT_OVERFLOW",
   "DESIGN_NAV_DOMINANCE",
+  // Conformidade com o design-brief.json (campo travado) e hash do contrato:
+  // requisito explicito e rastreavel por definicao.
+  "DESIGN_BRIEF_MISMATCH",
+  "DESIGN_CONTRACT_HASH_MISMATCH",
 ]);
 
 // Categorias nunca bloqueantes (sem upgrade por requisito)

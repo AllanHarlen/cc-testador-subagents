@@ -42,7 +42,10 @@ export function parseTokensCss(path) {
   const raw = readFileSync(path, "utf8");
   const tokens = new Map();
   for (const match of raw.matchAll(CSS_CUSTOM_PROPERTY)) {
-    tokens.set(`--${match[1]}`, match[2].trim());
+    // Primeira ocorrencia vence: o pacote v2 declara o tema claro (`:root`)
+    // antes dos overrides escuros; sobrescrever apagaria o valor claro.
+    const name = `--${match[1]}`;
+    if (!tokens.has(name)) tokens.set(name, match[2].trim());
   }
   return { tokens, raw, found: true };
 }

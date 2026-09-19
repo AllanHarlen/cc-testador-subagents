@@ -6,6 +6,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { mapVerdictToHandoffStatus, triageFindings } from "./lib/finding-triage.mjs";
+import { darkProbeGateForDir } from "./lib/dark-probe-gate.mjs";
 import { executeJsonCli, boolArg, parseArgs, required } from "./lib/cli-utils.mjs";
 
 /** Le um arquivo NDJSON (uma linha JSON por registro); linhas invalidas sao ignoradas. */
@@ -70,6 +71,10 @@ function main(argv) {
   if (existsSync(uiuxResultsPath)) {
     try { rawFindings.push(...JSON.parse(readFileSync(uiuxResultsPath, "utf8"))); } catch { /* opcional */ }
   }
+
+  // Gate do tema escuro: o brief expoe o tema escuro mas nenhum probe
+  // `theme:"dark"` foi capturado -> critico, nao aviso.
+  rawFindings.push(...darkProbeGateForDir(artefatosDir));
 
   const requirementsPath = join(artefatosDir, "plan", "coverage-matrix.json");
   let requirements = [];
