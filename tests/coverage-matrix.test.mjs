@@ -59,6 +59,32 @@ test("entriesFromRequirementsIndex creates entries for each RF and CA", () => {
   assert.equal(ca01.origin.parentRef, "RF-01");
 });
 
+// The shape cc-pensador's requirements-extractor.mjs actually emits: CAs in a top-level array linked by
+// requirementId(s), text in `text`/`criterion`, plus RNF (2.38.0). The nested-only reader listed no CA.
+test("entriesFromRequirementsIndex reads the real Pensador shape: top-level CAs and RNF", () => {
+  const root = fixture();
+  const path = join(root, "requirements.json");
+  writeFileSync(path, JSON.stringify({
+    requirements: [{ id: "RF-01", text: "Agendar servico", priority: "Alta" }, { id: "RF-02", text: "Emitir orcamento", priority: "Media" }],
+    acceptanceCriteria: [
+      { id: "CA-01", requirementId: "RF-01", requirementIds: ["RF-01"], criterion: "Horario ocupado e recusado com mensagem" },
+      { id: "CA-02", requirementId: "RF-02", requirementIds: ["RF-02", "RF-01"], criterion: "Orcamento lista pecas e mao de obra" },
+    ],
+    nonFunctionalRequirements: [
+      { id: "RNF-01", category: "Acessibilidade", text: "WCAG 2.2 AA" },
+      { id: "RNF-02", category: "Segurança", text: "Isolamento por tenant" },
+    ],
+    architecturePatterns: [{ id: "ARC-01", pattern: "Repository" }],
+  }), "utf8");
+  const { entries } = entriesFromRequirementsIndex(path);
+  const refs = entries.map((entry) => `${entry.origin.ref}<${entry.origin.parentRef ?? ""}`);
+  assert.deepEqual(refs, ["RF-01<", "CA-01<RF-01", "CA-02<RF-01", "RF-02<", "CA-02<RF-02", "RNF-01<", "RNF-02<"]);
+  assert.equal(entries[0].flow, "Agendar servico");
+  assert.equal(entries[1].flow, "Horario ocupado e recusado com mensagem");
+  assert.equal(entries.find((entry) => entry.origin.ref === "RNF-01").automatable, "AUTOMATABLE");
+  assert.equal(entries.find((entry) => entry.origin.ref === "RNF-02").automatable, "MANUAL");
+});
+
 test("entriesFromRequirementsIndex throws REQUIREMENTS_INDEX_NOT_FOUND for missing file", () => {
   assert.throws(
     () => entriesFromRequirementsIndex("/does/not/exist.json"),
