@@ -2,6 +2,12 @@
 
 Todas as mudancas notaveis deste plugin sao documentadas aqui.
 
+## [1.7.0] — 2026-09-25 — Sync do contrato de handoff (design-prototype, components.css, RNF/ARC)
+
+- **`handoff-contract.md` (byte-identico nos quatro plugins):** role `design-prototype` do Pensador (prototipo do Open Design, obrigatorio quando o Open Design e usado), `components.css` no layout do `resolved/` e `requirements-index` com `nonFunctionalRequirements`/`architecturePatterns` (cc-pensador 2.38.0).
+- **`handoff-validator.mjs`:** `HANDOFF_ROLES_BY_STAGE.pensador` aceita `design-prototype`.
+- **`references/open-design-validation.md`:** `components.css` entra na fonte do verbatim; componente com classe do pacote renderizado sem estilo no navegador indica que a folha nao foi importada.
+
 ## [1.6.0] — 2026-09-19 — Probe escuro obrigatorio por gate em codigo
 
 - **Gate:** novo achado `DESIGN_DARK_PROBE_MISSING` (critico, sempre bloqueante, com ou sem `--has-open-design`). Dispara quando o `design-brief.json` expoe o tema escuro (`themeExposure` diferente de `light-only`) e `run/design-probes.json` nao tem nenhuma entrada `theme:"dark"` (ou o arquivo esta ausente/ilegivel). Substitui o `warnings` de 1.5.0, que aprovava em silencio.
