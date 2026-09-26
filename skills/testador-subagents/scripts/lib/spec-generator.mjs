@@ -104,7 +104,12 @@ function assertInsideTestadorRoot(artefatosDir) {
   let physicalRoot;
   try {
     physical = realpathSync(artefatosDir);
-    physicalRoot = realpathSync(join(sep === "\\" ? `${segments[0]}\\` : sep, ...segments.slice(1, marker + 1)));
+    // Windows: segments[0] is the drive ("C:") and is re-attached as the root. POSIX: the path starts
+    // at "/" and segments[0] is a real directory ("tmp") — slicing it off rebuilt "/x/.testador"
+    // instead of "/tmp/x/.testador", so every Linux run (CI included) failed ARTEFATOS_DIR_UNRESOLVABLE.
+    physicalRoot = realpathSync(sep === "\\"
+      ? join(`${segments[0]}\\`, ...segments.slice(1, marker + 1))
+      : join(sep, ...segments.slice(0, marker + 1)));
   } catch (error) {
     throw new SpecGeneratorError("ARTEFATOS_DIR_UNRESOLVABLE", `artefatosDir must already exist and resolve physically: ${artefatosDir}`, { cause: error.code });
   }

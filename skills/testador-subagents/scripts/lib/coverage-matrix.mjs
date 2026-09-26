@@ -34,6 +34,8 @@ export class CoverageMatrixError extends Error {
   }
 }
 
+const BROWSER_VERIFIABLE_NFR = /acessib|accessib|a11y|wcag|responsiv|usabil|usability|mobile|desempenho|performance|lcp|core web vitals/i;
+
 /**
  * Converte um requirements-index (requirements.json) em entradas de matriz.
  * O requirements-index tem a forma:
@@ -59,30 +61,55 @@ export function entriesFromRequirementsIndex(requirementsIndexPath) {
   }
 
   const reqs = data.requirements ?? data.rfs ?? [];
+  // O requirements.json real do Pensador (requirements-extractor.mjs) traz os CAs num array de topo,
+  // ligados por `requirementId`/`requirementIds`, e o texto em `text`/`criterion` — nao aninhados em
+  // `criteria` com `title`. Lendo so a forma aninhada, a matriz nunca listava um CA sequer e a triagem
+  // nao tinha texto de requisito para rastrear um achado (formato legado continua aceito).
+  const topLevelCriteria = Array.isArray(data.acceptanceCriteria) ? data.acceptanceCriteria : [];
+  const titleOf = (item, fallback) => item.title ?? item.text ?? item.description ?? item.criterion ?? fallback;
   const entries = [];
 
   for (const req of reqs) {
     // Requisito pai como entrada propria
     entries.push({
       id: `${req.id}-flow`,
-      origin: { kind: "prd-requirement", ref: req.id, title: req.title ?? req.id },
-      flow: req.title ?? req.id,
+      origin: { kind: "prd-requirement", ref: req.id, title: titleOf(req, req.id) },
+      flow: titleOf(req, req.id),
       automatable: "AUTOMATABLE",
       status: "UNCOVERED",
       coveredBy: null,
     });
 
     // Criterios de aceite como entradas filhas
-    for (const ca of req.criteria ?? req.acceptanceCriteria ?? []) {
+    const linked = topLevelCriteria.filter((ca) => {
+      const owners = Array.isArray(ca.requirementIds) && ca.requirementIds.length ? ca.requirementIds : [ca.requirementId];
+      return owners.includes(req.id);
+    });
+    for (const ca of [...(req.criteria ?? req.acceptanceCriteria ?? []), ...linked]) {
       entries.push({
         id: `${ca.id ?? `${req.id}-ca`}-flow`,
-        origin: { kind: "prd-acceptance-criteria", ref: ca.id ?? `${req.id}-ca`, parentRef: req.id, title: ca.description ?? ca.title ?? ca.id },
-        flow: ca.description ?? ca.title ?? ca.id,
+        origin: { kind: "prd-acceptance-criteria", ref: ca.id ?? `${req.id}-ca`, parentRef: req.id, title: titleOf(ca, ca.id) },
+        flow: titleOf(ca, ca.id),
         automatable: "AUTOMATABLE",
         status: "UNCOVERED",
         coveredBy: null,
       });
     }
+  }
+
+  // RNF (cc-pensador >= 2.38.0): os verificaveis no navegador (acessibilidade, responsividade,
+  // usabilidade, desempenho de pagina) entram como AUTOMATABLE; os demais (seguranca de back-end,
+  // disponibilidade...) ficam MANUAL — cobertos pela evidencia do Orquestrador, visiveis aqui.
+  for (const rnf of data.nonFunctionalRequirements ?? []) {
+    const title = [rnf.category, rnf.text].filter(Boolean).join(": ") || rnf.id;
+    entries.push({
+      id: `${rnf.id}-flow`,
+      origin: { kind: "prd-nonfunctional", ref: rnf.id, title },
+      flow: title,
+      automatable: BROWSER_VERIFIABLE_NFR.test(title) ? "AUTOMATABLE" : "MANUAL",
+      status: "UNCOVERED",
+      coveredBy: null,
+    });
   }
 
   return { entries, source: "requirements-index", path: requirementsIndexPath };

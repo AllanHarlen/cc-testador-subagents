@@ -2,6 +2,16 @@
 
 Todas as mudancas notaveis deste plugin sao documentadas aqui.
 
+## [1.7.0] — 2026-09-25 — Sync do contrato de handoff (design-prototype, components.css, RNF/ARC)
+
+- **`handoff-contract.md` (byte-identico nos quatro plugins):** role `design-prototype` do Pensador (prototipo do Open Design, obrigatorio quando o Open Design e usado), `components.css` no layout do `resolved/` e `requirements-index` com `nonFunctionalRequirements`/`architecturePatterns` (cc-pensador 2.38.0).
+- **`handoff-validator.mjs`:** `HANDOFF_ROLES_BY_STAGE.pensador` aceita `design-prototype`.
+- **`references/open-design-validation.md`:** `components.css` entra na fonte do verbatim; componente com classe do pacote renderizado sem estilo no navegador indica que a folha nao foi importada.
+- **Matriz de cobertura lê o `requirements.json` real:** o Pensador emite os CAs num array de topo ligado por `requirementId`/`requirementIds`, com texto em `text`/`criterion`; o leitor só aceitava `criteria` aninhado com `title`, então nenhum CA entrava na matriz e a triagem não tinha texto de requisito para rastrear achados. Agora os dois formatos são aceitos, e os RNF entram (acessibilidade/responsividade/usabilidade/desempenho como `AUTOMATABLE`, os demais como `MANUAL`).
+- **Contrato compartilhado:** seção 6 com `validation.review` (cc-pensador 2.38.0).
+- **Testes:** caso novo em `tests/coverage-matrix.test.mjs` com o formato real do Pensador.
+- **CI em Linux:** `spec-generator.mjs` remontava a raiz `.testador/` descartando o primeiro diretorio no POSIX (`/tmp/x/.testador` virava `/x/.testador`), e todo run em Linux falhava com `ARTEFATOS_DIR_UNRESOLVABLE` — o CI do `main` estava vermelho desde 17/09; no Windows o mesmo `slice` so pulava a letra do drive.
+
 ## [1.6.0] — 2026-09-19 — Probe escuro obrigatorio por gate em codigo
 
 - **Gate:** novo achado `DESIGN_DARK_PROBE_MISSING` (critico, sempre bloqueante, com ou sem `--has-open-design`). Dispara quando o `design-brief.json` expoe o tema escuro (`themeExposure` diferente de `light-only`) e `run/design-probes.json` nao tem nenhuma entrada `theme:"dark"` (ou o arquivo esta ausente/ilegivel). Substitui o `warnings` de 1.5.0, que aprovava em silencio.

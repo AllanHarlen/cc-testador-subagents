@@ -21,7 +21,9 @@ Todas derivam do gate de design do handoff-contract.md §6 e da regra inviolavel
 
 O verbatim e o pacote **`resolved/`** apontado pelo handoff do Pensador
 (`design-systems/<id>/resolved/`): `design-contract.json`, `tokens.css`,
-`DESIGN.md`, `components.html`, `preview/`. O `source/` (proveniencia do engine)
+`DESIGN.md`, `components.html`, `preview/`; `components.css` e a folha de
+componentes que o produto importa depois de `tokens.css` (componente com classe do
+pacote renderizado sem estilo no navegador indica que ela nao foi importada). O `source/` (proveniencia do engine)
 nao e verbatim e nao entra na comparacao. O id do system e `<id>` (nunca
 `<id>/resolved`). A entrada do handoff carrega `contractSha256`, `themes` e
 `designBriefPath`, todos consumidos por `ingest-upstream.mjs`.

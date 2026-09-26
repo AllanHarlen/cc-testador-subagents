@@ -46,6 +46,8 @@ node "${CLAUDE_SKILL_DIR}/scripts/build-coverage-matrix.mjs" \
 
 Sem fonte formal: gate `spec-coverage` degrada e registra — nunca finge cobertura.
 
+`--requirements-index` e o `requirements.json` do Pensador: cada `requirements[]` (RF, texto em `text`) vira uma entrada, e cada CA do array de topo `acceptanceCriteria[]` vira uma entrada filha de todo RF listado em `requirementIds` (ou `requirementId`), com o texto de `criterion`. O formato legado (`criteria` aninhado com `title`) continua aceito. Os `nonFunctionalRequirements[]` (RNF) entram como `prd-nonfunctional`: acessibilidade, responsividade, usabilidade e desempenho de pagina como `AUTOMATABLE`; os demais como `MANUAL` (cobertos pela evidencia do Orquestrador, visiveis aqui). A triagem da Fase 9 le o texto dessas entradas para rastrear um achado a um requisito explicito.
+
 ```bash
 node "${CLAUDE_SKILL_DIR}/scripts/testador-gates.mjs" plan \
   --scope <SMOKE|STANDARD|FULL> \
