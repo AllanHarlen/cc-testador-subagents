@@ -2,6 +2,8 @@
 
 Claude Code plugin for real-browser QA between the Orchestrator and the Executor. It adds the skill **`testador-subagents`** and the command **`/testador`**.
 
+> **Real requirements index and Linux CI (1.7.0):** the coverage matrix now reads the `requirements.json` the Pensador actually emits — acceptance criteria in a top-level `acceptanceCriteria` array linked by `requirementId`/`requirementIds`, text in `text`/`criterion` — instead of only nested `criteria` with `title`: before, no CA ever reached the matrix and triage had no requirement text to trace a finding to. Non-functional requirements (`RNF-XX`, cc-pensador 2.38.0) enter too: browser-verifiable ones (accessibility, responsiveness, usability, page performance) as `AUTOMATABLE`, the rest as `MANUAL`. The spec generator also resolves its `.testador/` root correctly on POSIX (every Linux run, CI included, failed with `ARTEFATOS_DIR_UNRESOLVABLE`), and the handoff contract adds the `design-prototype` role, `components.css` and the recorded design review.
+>
 > **Dark probe gate (1.6.0):** when `design-brief.json` exposes the dark theme (`themeExposure` other than `light-only`) and `run/design-probes.json` has no `theme: "dark"` probe, the run now gets the critical, always-blocking `DESIGN_DARK_PROBE_MISSING` finding (in `check-runtime-design.mjs` and in `triage-findings.mjs`) instead of a warning. The Phase 8 subagent captures the dark probe itself, via Playwright MCP.
 >
 > **Brief and dark theme at runtime (1.5.0):** the runtime design probe now checks the running app against `design-brief.json` (`DESIGN_BRIEF_MISMATCH`: painted theme vs `themeDefault`/`themeExposure`, locked primary vs `--accent` in the light theme) and, when the brief exposes the dark theme, also probes it (`theme: "dark"` in `run/design-probes.json`). A `contractSha256` that no longer matches `design-contract.json` is `DESIGN_CONTRACT_HASH_MISMATCH`.
@@ -133,7 +135,7 @@ Simplified flow:
 1. preflight — Playwright MCP, browsers, three mandatory skills;
 2. upstream ingestion — Orchestrator handoff, OpenSpec, Open Design tokens;
 3. target discovery — `baseUrl`, `startCommand`, routes, credential key names;
-4. traceable test plan — RF/CA or `#### Scenario:` → coverage matrix;
+4. traceable test plan — RF/CA (and RNF) from `requirements.json`, or `#### Scenario:` → coverage matrix;
 5. stack up — `docker compose up --build` or `npm run dev` via `webapp-testing`;
 6. MCP exploration — smoke, selectors, `flow-map.json` → screenshots;
 7. spec generation — deterministic `.spec.mjs` files (never in the target repo);

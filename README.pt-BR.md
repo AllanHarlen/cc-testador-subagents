@@ -2,6 +2,8 @@
 
 Plugin de Claude Code para validação em navegador real entre o Orquestrador e o Executor. Ele adiciona a skill **`testador-subagents`** e o comando **`/testador`**.
 
+> **Índice de requisitos real e CI em Linux (1.7.0):** a matriz de cobertura agora lê o `requirements.json` que o Pensador de fato emite — critérios de aceite num array `acceptanceCriteria` de topo ligado por `requirementId`/`requirementIds`, texto em `text`/`criterion` — e não só `criteria` aninhado com `title`: antes nenhum CA entrava na matriz e a triagem não tinha texto de requisito para rastrear um achado. Os requisitos não funcionais (`RNF-XX`, cc-pensador 2.38.0) também entram: os verificáveis no navegador (acessibilidade, responsividade, usabilidade, desempenho de página) como `AUTOMATABLE`, os demais como `MANUAL`. O gerador de specs também resolve a raiz `.testador/` corretamente no POSIX (todo run em Linux, CI incluído, falhava com `ARTEFATOS_DIR_UNRESOLVABLE`), e o contrato de handoff ganha o role `design-prototype`, o `components.css` e a review do design registrada.
+>
 > **Gate do probe escuro (1.6.0):** quando o `design-brief.json` expoe o tema escuro (`themeExposure` diferente de `light-only`) e `run/design-probes.json` nao tem probe `theme: "dark"`, a run recebe o achado critico e sempre bloqueante `DESIGN_DARK_PROBE_MISSING` (em `check-runtime-design.mjs` e em `triage-findings.mjs`) em vez de um aviso. O subagente da Fase 8 captura o probe escuro por conta propria, via Playwright MCP.
 >
 > **Brief e tema escuro em runtime (1.5.0):** o probe de design em runtime agora confere o app rodando contra o `design-brief.json` (`DESIGN_BRIEF_MISMATCH`: tema pintado x `themeDefault`/`themeExposure`, primaria travada x `--accent` no tema claro) e, quando o brief expoe o tema escuro, tambem o sonda (`theme: "dark"` em `run/design-probes.json`). Um `contractSha256` que nao bate com o `design-contract.json` e `DESIGN_CONTRACT_HASH_MISMATCH`.
@@ -131,7 +133,7 @@ Fluxo resumido:
 1. preflight — Playwright MCP, browsers, três skills obrigatórias;
 2. ingestão de upstream — handoff do Orquestrador, OpenSpec, tokens do Open Design;
 3. descoberta de alvo — `baseUrl`, `startCommand`, rotas, nomes de chave de credencial;
-4. plano rastreável — RF/CA ou `#### Scenario:` → matriz de cobertura;
+4. plano rastreável — RF/CA (e RNF) do `requirements.json`, ou `#### Scenario:` → matriz de cobertura;
 5. subida da stack — `docker compose up --build` ou `npm run dev` via `webapp-testing`;
 6. exploração MCP — smoke, seletores, `flow-map.json` → screenshots;
 7. geração de specs — arquivos `.spec.mjs` determinísticos (nunca no repo alvo);
